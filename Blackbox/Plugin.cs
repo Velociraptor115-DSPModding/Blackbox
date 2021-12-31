@@ -19,7 +19,7 @@ namespace DysonSphereProgram.Modding.Blackbox
 
     private Harmony _harmony;
     internal static ManualLogSource Log;
-    internal static string Path;
+    public static string Path;
 
     private void Awake()
     {

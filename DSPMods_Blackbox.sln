@@ -5,6 +5,8 @@ VisualStudioVersion = 17.0.31912.275
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Blackbox", "Blackbox\Blackbox.csproj", "{5110C933-A27F-4E1F-B466-584C02A4BF8B}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Blackbox.UI", "Blackbox.UI\Blackbox.UI.csproj", "{B42CCEB2-2B09-4FC4-A9F0-258DEA7877D2}"
+EndProject
 Global
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
