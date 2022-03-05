@@ -150,6 +150,22 @@ namespace DysonSphereProgram.Modding.Blackbox
       powerSystem.consumerRecycle = null;
       powerSystem.consumerRecycleCursor = 0;
       factory.powerSystem = null;
+      
+      for (int i = 0; i < factory.transport.stationPool.Length; i++)
+      {
+        if (factory.transport.stationPool[i] != null)
+        {
+          factory.transport.stationPool[i].Free();
+          factory.transport.stationPool[i] = null;
+        }
+      }
+      factory.transport.stationPool = null;
+      factory.transport.stationCursor = 1;
+      factory.transport.stationCapacity = 0;
+      factory.transport.stationRecycle = null;
+      factory.transport.stationRecycleCursor = 0;
+      factory.transport = null;
+      
       factory.Free();
     }
 

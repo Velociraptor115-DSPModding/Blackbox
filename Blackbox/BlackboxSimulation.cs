@@ -240,7 +240,7 @@ namespace DysonSphereProgram.Modding.Blackbox
           var consumedCount = (int)curPercent * count;
           var countToReturn = count - consumedCount;
 
-          GameMain.mainPlayer.TryAddItemToPackage(itemId, countToReturn, true /*, stationEntityId */);
+          GameMain.mainPlayer.TryAddItemToPackage(itemId, countToReturn, 0 /* Need to fix this */, true /*, stationEntityId */);
         }
       }
 
@@ -255,7 +255,7 @@ namespace DysonSphereProgram.Modding.Blackbox
 
           var producedCount = (int)curPercent * count;
 
-          GameMain.mainPlayer.TryAddItemToPackage(itemId, producedCount, true /*, stationEntityId */);
+          GameMain.mainPlayer.TryAddItemToPackage(itemId, producedCount, 0  /* Need to fix this */, true /*, stationEntityId */);
         }
       }
     }
