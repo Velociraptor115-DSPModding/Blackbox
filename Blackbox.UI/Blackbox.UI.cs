@@ -106,11 +106,23 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
     }
 
     [HarmonyPostfix]
+    [HarmonyPatch(typeof(UIGame), nameof(UIGame.isAnyFunctionWindowActive), MethodType.Getter)]
+    static void PatchIsAnyBlackboxWindowActive(ref bool __result)
+    {
+      var inspectWindow = BlackboxUIGateway.BlackboxInspectWindow.Component;
+      var managerWindow = BlackboxUIGateway.BlackboxManagerWindow.Component;
+      __result = __result || inspectWindow && inspectWindow.active;
+      __result = __result || managerWindow && managerWindow.active;
+    }
+
+    [HarmonyPostfix]
+    [HarmonyPatch(typeof(UIGame), nameof(UIGame.ShutInventoryConflictsWindows))]
     [HarmonyPatch(typeof(UIGame), nameof(UIGame.ShutAllFunctionWindow))]
     static void UIGame__ShutAllFunctionWindow()
     {
       BlackboxUIGateway.BlackboxInspectWindow.Component._Close();
       BlackboxUIGateway.BlackboxInspectWindow.Component._Free();
+      BlackboxUIGateway.BlackboxManagerWindow.Component._Close();
     }
 
     [HarmonyPostfix]
