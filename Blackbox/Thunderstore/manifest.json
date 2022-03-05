@@ -1,0 +1,7 @@
+{
+  "name": "Blackbox",
+  "version_number": "0.0.3",
+  "website_url": "https://github.com/Velociraptor115/DSPMods",
+  "description": "Allows you to \"blackbox\" sets of buildings together",
+  "dependencies": [ "xiaoye97-BepInEx-5.4.11", "CommonAPI-DSPModSave-1.1.3" ]
+}
