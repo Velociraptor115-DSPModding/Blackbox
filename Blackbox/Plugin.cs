@@ -5,12 +5,16 @@ using BepInEx.Logging;
 using HarmonyLib;
 using UnityEngine;
 using crecheng.DSPModSave;
+using CommonAPI;
+using CommonAPI.Systems;
 
 namespace DysonSphereProgram.Modding.Blackbox
 {
   [BepInPlugin(GUID, NAME, VERSION)]
   [BepInProcess("DSPGAME.exe")]
   [BepInDependency(DSPModSavePlugin.MODGUID)]
+  [BepInDependency(CommonAPIPlugin.GUID)]
+  [CommonAPISubmoduleDependency(nameof(ProtoRegistry), nameof(CustomKeyBindSystem))]
   public class Plugin : BaseUnityPlugin, IModCanSave
   {
     public const string GUID = "dev.raptor.dsp.Blackbox";
@@ -30,6 +34,7 @@ namespace DysonSphereProgram.Modding.Blackbox
       _harmony.PatchAll(typeof(BlackboxPatch));
       _harmony.PatchAll(typeof(VanillaSavePreservationPatch));
       _harmony.PatchAll(typeof(InputUpdatePatch));
+      KeyBinds.RegisterKeyBinds();
       Logger.LogInfo("Blackbox Awake() called");
     }
 
@@ -62,15 +67,19 @@ namespace DysonSphereProgram.Modding.Blackbox
   {
     static void Postfix()
     {
-      if (Input.GetKey(KeyCode.LeftControl))
+      if (CustomKeyBindSystem.GetKeyBind(KeyBinds.CreateBlackbox).keyValue)
       {
         var player = GameMain.mainPlayer;
+        if (player == null)
+          return;
+        if (player.factory == null)
+          return;
 
-        if (Input.GetKeyDown(KeyCode.N) && player.factory != null)
-        {
-          var selection = BlackboxSelection.CreateFrom(player.factory, player.controller.actionBuild.blueprintCopyTool.selectedObjIds);
-          BlackboxManager.Instance.CreateForSelection(selection);
-        }
+        var selection = BlackboxSelection.CreateFrom(player.factory, player.controller.actionBuild.blueprintCopyTool.selectedObjIds);
+        if (selection.stationIds.Count <= 0)
+          return;
+
+        BlackboxManager.Instance.CreateForSelection(selection);
       }
     }
   }
