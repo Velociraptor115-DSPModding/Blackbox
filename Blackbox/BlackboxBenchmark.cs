@@ -120,18 +120,13 @@ namespace DysonSphereProgram.Modding.Blackbox
 
     const int pcOffset = 0;
     int pcSize;
-    int assemblerOffset;
-    int[] assemblerOffsets;
-    int assemblerSize;
     int stationOffset;
     int[] stationOffsets;
     int stationSize;
-    int inserterOffset;
-    int inserterSize;
-    int labOffset;
-    int labSize;
-    int statsOffset;
-    int statsSize;
+    int factoryStatsOffset;
+    int factoryStatsSize;
+    int stationStatsOffset;
+    int stationStatsSize;
     int statsDiffOffset;
     int statsDiffSize;
 
@@ -192,8 +187,8 @@ namespace DysonSphereProgram.Modding.Blackbox
         for (int i = 0; i < pcSummary.Length; i++)
           pcSummary[i] += pcDetailed[i];
 
-        var restDetailed = detailed.Slice(analysis.assemblerOffset, analysis.assemblerSize + analysis.stationSize + analysis.inserterSize + analysis.labSize + analysis.statsSize);
-        var restSummary = summary.Slice(analysis.assemblerOffset, analysis.assemblerSize + analysis.stationSize + analysis.inserterSize + analysis.labSize + analysis.statsSize);
+        var restDetailed = detailed.Slice(analysis.stationOffset, analysis.stationSize + analysis.factoryStatsSize + analysis.stationStatsSize);
+        var restSummary = summary.Slice(analysis.stationOffset, analysis.stationSize + analysis.factoryStatsSize + analysis.stationStatsSize);
         for (int i = 0; i < restSummary.Length; i++)
           restSummary[i] += restDetailed[i];
 
@@ -234,17 +229,9 @@ namespace DysonSphereProgram.Modding.Blackbox
         }
       }
 
-      this.assemblerOffsets = new int[assemblerIds.Count];
       this.stationOffsets = new int[stationIds.Count];
 
       this.pcSize = AnalysisData.size_powerConsumer * pcIds.Count;
-      this.assemblerSize = 0;
-      for (int i = 0; i < assemblerIds.Count; i++)
-      {
-        assemblerOffsets[i] = assemblerSize;
-        ref readonly var assembler = ref simulationFactory.factorySystem.assemblerPool[assemblerIds[i]];
-        this.assemblerSize += assembler.served.Length + assembler.produced.Length;
-      }
       this.stationSize = 0;
       for (int i = 0; i < stationIds.Count; i++)
       {
@@ -252,30 +239,21 @@ namespace DysonSphereProgram.Modding.Blackbox
         ref readonly var station = ref simulationFactory.transport.stationPool[stationIds[i]];
         this.stationSize += station.storage.Length;
       }
-      this.inserterSize = profileInserters ? AnalysisData.size_inserter * inserterIds.Count : 0;
-      this.labSize = 0;
-      for (int i = 0; i < labIds.Count; i++)
-      {
-        //assemblerOffsets[i] = assemblerSize;
-        ref readonly var lab = ref simulationFactory.factorySystem.labPool[labIds[i]];
-        this.labSize += lab.served.Length + lab.produced.Length;
-      }
-      this.statsSize = itemIds.Count * 2;
+      this.factoryStatsSize = itemIds.Count * 2;
+      this.stationStatsSize = itemIds.Count * 2;
       this.statsDiffSize = itemIds.Count;
 
-      this.assemblerOffset = pcOffset + pcSize;
-      this.stationOffset = assemblerOffset + assemblerSize;
-      this.inserterOffset = stationOffset + stationSize;
-      this.labOffset = inserterOffset + inserterSize;
-      this.statsOffset = labOffset + labSize;
-      this.statsDiffOffset = statsOffset + statsSize;
-      this.perTickProfilingSize = pcSize + assemblerSize + stationSize + inserterSize + labSize + statsSize + statsDiffSize;
+      this.stationOffset = pcOffset + pcSize;
+      this.factoryStatsOffset = stationOffset + stationSize;
+      this.stationStatsOffset = factoryStatsOffset + factoryStatsSize;
+      this.statsDiffOffset = stationStatsOffset + stationStatsSize;
+      this.perTickProfilingSize = pcSize + stationSize + factoryStatsSize + stationStatsSize + statsDiffSize;
 
       this.totalStats = new ProduceConsumePair[itemIds.Count];
 
       var distinctTimeSpends = tmp_assemblerTimeSpends.Distinct().DefaultIfEmpty(60);
       this.timeSpendGCD = Utils.GCD(distinctTimeSpends);
-      this.timeSpendLCM = Utils.LCM(distinctTimeSpends);
+      this.timeSpendLCM = Utils.LCM(distinctTimeSpends) * 4;
       this.profilingTickCount = timeSpendLCM * ((analysisVerificationCount * 2 * /* to account for sorter stacking */ 6) + 2);
       this.profilingEntryCount = profilingTickCount / timeSpendGCD;
 
@@ -297,7 +275,7 @@ namespace DysonSphereProgram.Modding.Blackbox
       if (continuousLogging)
       {
         Directory.CreateDirectory($@"{FileLogPath}\DataAnalysis");
-        continuousLogger = new StreamWriter($@"{FileLogPath}\DataAnalysis\BenchmarkV2_CL_{blackbox.Id}.csv");
+        continuousLogger = new StreamWriter($@"{FileLogPath}\DataAnalysis\BenchmarkV4_CL_{blackbox.Id}.csv");
 
         WriteContinuousLoggingHeader();
       }
@@ -306,7 +284,7 @@ namespace DysonSphereProgram.Modding.Blackbox
       {
         profilingTaskCancel = new CancellationTokenSource();
         var ct = profilingTaskCancel.Token;
-        profilingTask = Task.Factory.StartNew(() => SimulateTillProfilingDone(ct), profilingTaskCancel.Token, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+        profilingTask = Task.Factory.StartNew(() => SimulateTillProfilingDone(ct), profilingTaskCancel.Token, TaskCreationOptions.PreferFairness, TaskScheduler.Default);
       }
     }
     
@@ -360,13 +338,17 @@ namespace DysonSphereProgram.Modding.Blackbox
 
         PlanetFactorySimulation.FreeSimulationFactory(simulationFactory);
       }
+      if (logProfiledData)
+      {
+        DumpAnalysisToFile();
+      }
       simulationFactory = null;
     }
 
     private void DumpAnalysisToFile()
     {
       Directory.CreateDirectory($@"{FileLogPath}\DataAnalysis");
-      using (var f = new FileStream($@"{FileLogPath}\DataAnalysis\BenchmarkV2_{blackbox.Id}.txt", FileMode.Create))
+      using (var f = new FileStream($@"{FileLogPath}\DataAnalysis\BenchmarkV4_{blackbox.Id}.txt", FileMode.Create))
       {
         using (var s = new StreamWriter(f))
         {
@@ -408,22 +390,9 @@ namespace DysonSphereProgram.Modding.Blackbox
 
     private void WriteContinuousLoggingHeader()
     {
-      for (int i = 0; i < pcIds.Count; i++)
-        continuousLogger.Write($"PC{i},");
-
-      for (int i = 0; i < assemblerIds.Count; i++)
-      {
-        ref readonly var assembler = ref simulationFactory.factorySystem.assemblerPool[assemblerIds[i]];
-
-        for (int j = 0; j < assembler.served.Length; j++)
-        {
-          continuousLogger.Write($"A{i}_I{j},");
-        }
-        for (int j = 0; j < assembler.produced.Length; j++)
-        {
-          continuousLogger.Write($"A{i}_O{j},");
-        }
-      }
+      continuousLogger.Write($"PC,");
+      // for (int i = 0; i < pcIds.Count; i++)
+      //   continuousLogger.Write($"PC{i},");
 
       for (int i = 0; i < stationIds.Count; i++)
       {
@@ -434,36 +403,20 @@ namespace DysonSphereProgram.Modding.Blackbox
         }
       }
 
-      if (profileInserters)
-      {
-        for (int i = 0; i < inserterIds.Count; i++)
-        {
-          continuousLogger.Write($"I{i}_C,");
-          continuousLogger.Write($"I{i}_S,");
-          continuousLogger.Write($"I{i}_I,");
-        }
-      }
-
-      for (int i = 0; i < labIds.Count; i++)
-      {
-        ref readonly var lab = ref simulationFactory.factorySystem.labPool[labIds[i]];
-
-        for (int j = 0; j < lab.served.Length; j++)
-        {
-          continuousLogger.Write($"L{i}_I{j},");
-        }
-        for (int j = 0; j < lab.produced.Length; j++)
-        {
-          continuousLogger.Write($"L{i}_O{j},");
-        }
-      }
-
       for (int i = 0; i < itemIds.Count; i++)
       {
         var itemId = itemIds[i];
         var itemName = LDB.ItemName(itemId).Replace(" ", "").Trim();
-        continuousLogger.Write($"P_{itemName},");
-        continuousLogger.Write($"C_{itemName},");
+        continuousLogger.Write($"F_P_{itemName},");
+        continuousLogger.Write($"F_C_{itemName},");
+        continuousLogger.Write($"S_P_{itemName},");
+        continuousLogger.Write($"S_C_{itemName},");
+      }
+      
+      for (int i = 0; i < itemIds.Count; i++)
+      {
+        var itemId = itemIds[i];
+        var itemName = LDB.ItemName(itemId).Replace(" ", "").Trim();
         continuousLogger.Write($"T_P_{itemName},");
         continuousLogger.Write($"T_C_{itemName},");
         continuousLogger.Write($"T_D_{itemName},");
@@ -476,31 +429,16 @@ namespace DysonSphereProgram.Modding.Blackbox
       var entry = profilingTsData.LevelEntryOffset(level, profilingTick);
 
       var pcData = MemoryMarshal.Cast<int, long>(entry.Slice(pcOffset, pcSize));
+      // for (int i = 0; i < pcIds.Count; i++)
+      // {
+      //   continuousLogger.Write(pcData[i]);
+      //   continuousLogger.Write(',');
+      // }
+      long pcDataTotal = 0;
       for (int i = 0; i < pcIds.Count; i++)
-      {
-        continuousLogger.Write(pcData[i]);
-        continuousLogger.Write(',');
-      }
-
-      var assemblerData = entry.Slice(assemblerOffset, assemblerSize);
-      var curAssemblerOffset = 0;
-      for (int i = 0; i < assemblerIds.Count; i++)
-      {
-        ref readonly var assembler = ref simulationFactory.factorySystem.assemblerPool[assemblerIds[i]];
-
-        for (int j = 0; j < assembler.served.Length; j++)
-        {
-          continuousLogger.Write(assemblerData[curAssemblerOffset]);
-          continuousLogger.Write(',');
-          curAssemblerOffset++;
-        }
-        for (int j = 0; j < assembler.produced.Length; j++)
-        {
-          continuousLogger.Write(assemblerData[curAssemblerOffset]);
-          continuousLogger.Write(',');
-          curAssemblerOffset++;
-        }
-      }
+        pcDataTotal += pcData[i];
+      continuousLogger.Write(pcDataTotal);
+      continuousLogger.Write(',');
 
       var stationData = entry.Slice(stationOffset, stationSize);
       var curStationOffset = 0;
@@ -515,49 +453,22 @@ namespace DysonSphereProgram.Modding.Blackbox
         }
       }
 
-      if (profileInserters)
-      {
-        var inserterData = entry.Slice(inserterOffset, inserterSize);
-        var curInserterOffset = 0;
-        for (int i = 0; i < inserterIds.Count; i++)
-        {
-          continuousLogger.Write(inserterData[curInserterOffset + AnalysisData.fo_stackCount]);
-          continuousLogger.Write(',');
-          continuousLogger.Write((EInserterStage)inserterData[curInserterOffset + AnalysisData.fo_stage]);
-          continuousLogger.Write(',');
-          continuousLogger.Write(inserterData[curInserterOffset + AnalysisData.fo_idleTick]);
-          continuousLogger.Write(',');
-          curInserterOffset += AnalysisData.size_inserter;
-        }
-      }
-
-      var labData = entry.Slice(labOffset, labSize);
-      var curLabOffset = 0;
-      for (int i = 0; i < labIds.Count; i++)
-      {
-        ref readonly var lab = ref simulationFactory.factorySystem.labPool[labIds[i]];
-
-        for (int j = 0; j < lab.served.Length; j++)
-        {
-          continuousLogger.Write(labData[curLabOffset]);
-          continuousLogger.Write(',');
-          curLabOffset++;
-        }
-        for (int j = 0; j < lab.produced.Length; j++)
-        {
-          continuousLogger.Write(labData[curLabOffset]);
-          continuousLogger.Write(',');
-          curLabOffset++;
-        }
-      }
-
-      var statsData = MemoryMarshal.Cast<int, ProduceConsumePair>(entry.Slice(statsOffset, statsSize));
+      var factoryStatsData = MemoryMarshal.Cast<int, ProduceConsumePair>(entry.Slice(factoryStatsOffset, factoryStatsSize));
+      var stationStatsData = MemoryMarshal.Cast<int, ProduceConsumePair>(entry.Slice(stationStatsOffset, stationStatsSize));
       for (int i = 0; i < itemIds.Count; i++)
       {
-        continuousLogger.Write(statsData[i].Produced);
+        continuousLogger.Write(factoryStatsData[i].Produced);
         continuousLogger.Write(',');
-        continuousLogger.Write(statsData[i].Consumed);
+        continuousLogger.Write(factoryStatsData[i].Consumed);
         continuousLogger.Write(',');
+        continuousLogger.Write(stationStatsData[i].Produced);
+        continuousLogger.Write(',');
+        continuousLogger.Write(stationStatsData[i].Consumed);
+        continuousLogger.Write(',');
+      }
+      
+      for (int i = 0; i < itemIds.Count; i++)
+      {
         continuousLogger.Write(totalStats[i].Produced);
         continuousLogger.Write(',');
         continuousLogger.Write(totalStats[i].Consumed);
@@ -572,25 +483,13 @@ namespace DysonSphereProgram.Modding.Blackbox
     {
       var levelEntrySpan = profilingTsData.LevelEntryOffset(0, profilingTick);
 
-      var statsData = MemoryMarshal.Cast<int, ProduceConsumePair>(levelEntrySpan.Slice(statsOffset, statsSize));
+      var factoryStatsData = MemoryMarshal.Cast<int, ProduceConsumePair>(levelEntrySpan.Slice(factoryStatsOffset, factoryStatsSize));
+      var stationStatsData = MemoryMarshal.Cast<int, ProduceConsumePair>(levelEntrySpan.Slice(stationStatsOffset, stationStatsSize));
 
-      var assemblerData = levelEntrySpan.Slice(assemblerOffset, assemblerSize);
-      var curAssemblerOffset = 0;
-      for (int i = 0; i < assemblerIds.Count; i++)
+      for (int i = 0; i < itemIds.Count; i++)
       {
-        ref readonly var assembler = ref simulationFactory.factorySystem.assemblerPool[assemblerIds[i]];
-        for (int j = 0; j < assembler.served.Length; j++)
-        {
-          var itemIdx = itemIds.IndexOf(assembler.requires[j]);
-          statsData[itemIdx].Consumed += assemblerData[curAssemblerOffset];
-          curAssemblerOffset++;
-        }
-        for (int j = 0; j < assembler.produced.Length; j++)
-        {
-          var itemIdx = itemIds.IndexOf(assembler.products[j]);
-          statsData[itemIdx].Produced += -assemblerData[curAssemblerOffset];
-          curAssemblerOffset++;
-        }
+        factoryStatsData[i].Consumed += consumeRegister[itemIds[i]];
+        factoryStatsData[i].Produced += productRegister[itemIds[i]];
       }
 
       var stationData = levelEntrySpan.Slice(stationOffset, stationSize);
@@ -606,30 +505,11 @@ namespace DysonSphereProgram.Modding.Blackbox
           {
             var itemIdx = itemIds.IndexOf(stationStorage.itemId);
             if (effectiveLogic == ELogisticStorage.Supply)
-              statsData[itemIdx].Consumed += -stationData[curStationOffset];
+              stationStatsData[itemIdx].Consumed += -stationData[curStationOffset];
             if (effectiveLogic == ELogisticStorage.Demand)
-              statsData[itemIdx].Produced += stationData[curStationOffset];
+              stationStatsData[itemIdx].Produced += stationData[curStationOffset];
           }
           curStationOffset++;
-        }
-      }
-
-      var labData = levelEntrySpan.Slice(labOffset, labSize);
-      var curLabOffset = 0;
-      for (int i = 0; i < labIds.Count; i++)
-      {
-        ref readonly var lab = ref simulationFactory.factorySystem.labPool[labIds[i]];
-        for (int j = 0; j < lab.served.Length; j++)
-        {
-          var itemIdx = itemIds.IndexOf(lab.requires[j]);
-          statsData[itemIdx].Consumed += labData[curLabOffset];
-          curLabOffset++;
-        }
-        for (int j = 0; j < lab.produced.Length; j++)
-        {
-          var itemIdx = itemIds.IndexOf(lab.products[j]);
-          statsData[itemIdx].Produced += -labData[curLabOffset];
-          curLabOffset++;
         }
       }
     }
@@ -637,10 +517,14 @@ namespace DysonSphereProgram.Modding.Blackbox
     private void LogTotalItemStats()
     {
       var entrySpan = profilingTsData.LevelEntryOffset(0, profilingTick);
-      var itemStatsSpan = entrySpan.Slice(statsOffset, statsSize);
+      var factoryStatsSpan = entrySpan.Slice(factoryStatsOffset, factoryStatsSize);
+      var stationStatsSpan = entrySpan.Slice(stationStatsOffset, stationStatsSize);
       var totalStatsSpan = MemoryMarshal.Cast<ProduceConsumePair, int>(new Span<ProduceConsumePair>(totalStats));
       for (int i = 0; i < totalStatsSpan.Length; i++)
-        totalStatsSpan[i] += itemStatsSpan[i];
+      {
+        totalStatsSpan[i] += factoryStatsSpan[i];
+        totalStatsSpan[i] += stationStatsSpan[i];
+      }
       var totalStatsDiffSpan = entrySpan.Slice(statsDiffOffset, statsDiffSize);
       for (int i = 0; i < totalStats.Length; i++)
         totalStatsDiffSpan[i] = totalStats[i].Produced - totalStats[i].Consumed;
@@ -660,8 +544,10 @@ namespace DysonSphereProgram.Modding.Blackbox
 
     private void ClearItemStats()
     {
-      var itemStatsSpan = profilingTsData.LevelEntryOffset(0, profilingTick).Slice(statsOffset, statsSize);
-      itemStatsSpan.Clear();
+      var factoryStatsSpan = profilingTsData.LevelEntryOffset(0, profilingTick).Slice(factoryStatsOffset, factoryStatsSize);
+      factoryStatsSpan.Clear();
+      var stationStatsSpan = profilingTsData.LevelEntryOffset(0, profilingTick).Slice(stationStatsOffset, stationStatsSize);
+      stationStatsSpan.Clear();
     }
 
     private void EndGameTick_Profiling()
@@ -678,8 +564,10 @@ namespace DysonSphereProgram.Modding.Blackbox
       {
         Plugin.Log.LogDebug("Profiling Tick: " + profilingTick);
       }
-      if (profilingTick - stabilizedTick > timeSpendLCM && profilingTick % timeSpendGCD == 0)
+      if (profilingTick - stabilizedTick > timeSpendLCM && profilingTick % timeSpendLCM == 0)
       {
+        Plugin.Log.LogDebug("Checking cycles");
+        
         var endIndex = (profilingTick / timeSpendGCD) - 1;
         var circularOffset = 0;
         if (endIndex > profilingEntryCount)
@@ -693,17 +581,21 @@ namespace DysonSphereProgram.Modding.Blackbox
           var span1 = profilingTsData.Level(1).Entry((i1 + circularOffset) % profilingEntryCount);
           var span2 = profilingTsData.Level(1).Entry((i2 + circularOffset) % profilingEntryCount);
 
-          for (int i = this.statsDiffOffset; i < this.statsDiffOffset + this.statsDiffSize; i++)
-            if (span1[i] != span2[i])
-              return false;
+          // for (int i = this.statsDiffOffset; i < this.statsDiffOffset + this.statsDiffSize; i++)
+          //   if (span1[i] != span2[i])
+          //     return false;
 
-          for (int i = this.statsOffset; i < this.statsOffset + this.statsSize; i++)
+          for (int i = this.factoryStatsOffset; i < this.factoryStatsOffset + this.factoryStatsSize; i++)
             if (span1[i] != span2[i])
               return false;
-
-          for (int i = this.stationOffset; i < this.stationOffset + this.stationSize; i++)
-            if (span1[i] != span2[i])
-              return false;
+          
+          // for (int i = this.stationStatsOffset; i < this.stationStatsOffset + this.stationStatsSize; i++)
+          //   if (span1[i] != span2[i])
+          //     return false;
+          //
+          // for (int i = this.stationOffset; i < this.stationOffset + this.stationSize; i++)
+          //   if (span1[i] != span2[i])
+          //     return false;
 
           return true;
         });
@@ -725,17 +617,21 @@ namespace DysonSphereProgram.Modding.Blackbox
             summarizer.Summarize(span2, span2Summary);
           }
 
-          for (int i = this.statsDiffOffset; i < this.statsDiffOffset + this.statsDiffSize; i++)
-            if (span1Summary[i] != span2Summary[i])
-              return false;
+          // for (int i = this.statsDiffOffset; i < this.statsDiffOffset + this.statsDiffSize; i++)
+          //   if (span1Summary[i] != span2Summary[i])
+          //     return false;
 
-          for (int i = this.statsOffset; i < this.statsOffset + this.statsSize; i++)
+          for (int i = this.factoryStatsOffset; i < this.factoryStatsOffset + this.factoryStatsSize; i++)
             if (span1Summary[i] != span2Summary[i])
               return false;
-
-          for (int i = this.stationOffset; i < this.stationOffset + this.stationSize; i++)
-            if (span1Summary[i] != span2Summary[i])
-              return false;
+          
+          // for (int i = this.stationStatsOffset; i < this.stationStatsOffset + this.stationStatsSize; i++)
+          //   if (span1Summary[i] != span2Summary[i])
+          //     return false;
+          //
+          // for (int i = this.stationOffset; i < this.stationOffset + this.stationSize; i++)
+          //   if (span1Summary[i] != span2Summary[i])
+          //     return false;
 
           return true;
         });
@@ -744,11 +640,6 @@ namespace DysonSphereProgram.Modding.Blackbox
         {
           this.observedCycleLength = cycleLength * timeSpendGCD;
           Debug.Log($"Cycle Length of {this.observedCycleLength} detected");
-          if (logProfiledData)
-          {
-            DumpAnalysisToFile();
-          }
-
           this.GenerateRecipe(endIndex, circularOffset, cycleLength);
           blackbox.NotifyBlackboxed(this.analysedRecipe);
         }
@@ -757,10 +648,6 @@ namespace DysonSphereProgram.Modding.Blackbox
       {
         profilingTick = 0;
         Plugin.Log.LogDebug($"Analysis Failed");
-        if (logProfiledData)
-        {
-          DumpAnalysisToFile();
-        }
         blackbox.NotifyAnalysisFailed();
       }
     }
@@ -795,7 +682,7 @@ namespace DysonSphereProgram.Modding.Blackbox
         summarizer.Summarize(entry, dataPerCycleSpan);
       }
 
-      var pcData = MemoryMarshal.Cast<int, long>(dataPerCycleSpan.Slice(pcOffset, assemblerOffset));
+      var pcData = MemoryMarshal.Cast<int, long>(dataPerCycleSpan.Slice(pcOffset, pcSize));
       foreach (var pc in pcData)
         workingEnergyPerCycle += pc;
 
@@ -833,48 +720,14 @@ namespace DysonSphereProgram.Modding.Blackbox
       var tmp_produces = new Dictionary<int, int>();
       var tmp_consumes = new Dictionary<int, int>();
 
-      var assemblerData = dataPerCycleSpan.Slice(assemblerOffset, assemblerSize);
-      var curAssemblerOffset = 0;
-      for (int i = 0; i < assemblerIds.Count; i++)
+      var factoryStatsSpan = MemoryMarshal.Cast<int, ProduceConsumePair>(dataPerCycleSpan.Slice(factoryStatsOffset, factoryStatsSize));
+
+      for (int i = 0; i < itemIds.Count; i++)
       {
-        ref readonly var assembler = ref simulationFactory.factorySystem.assemblerPool[assemblerIds[i]];
-
-        for (int j = 0; j < assembler.served.Length; j++)
-        {
-          var itemId = assembler.requires[j];
-          if (!tmp_consumes.ContainsKey(itemId))
-            tmp_consumes[itemId] = 0;
-          tmp_consumes[itemId] += assemblerData[curAssemblerOffset++];
-        }
-        for (int j = 0; j < assembler.produced.Length; j++)
-        {
-          var itemId = assembler.products[j];
-          if (!tmp_produces.ContainsKey(itemId))
-            tmp_produces[itemId] = 0;
-          tmp_produces[itemId] += -assemblerData[curAssemblerOffset++];
-        }
-      }
-
-      var labData = dataPerCycleSpan.Slice(labOffset, labSize);
-      var curLabOffset = 0;
-      for (int i = 0; i < labIds.Count; i++)
-      {
-        ref readonly var lab = ref simulationFactory.factorySystem.labPool[labIds[i]];
-
-        for (int j = 0; j < lab.served.Length; j++)
-        {
-          var itemId = lab.requires[j];
-          if (!tmp_consumes.ContainsKey(itemId))
-            tmp_consumes[itemId] = 0;
-          tmp_consumes[itemId] += labData[curLabOffset++];
-        }
-        for (int j = 0; j < lab.produced.Length; j++)
-        {
-          var itemId = lab.products[j];
-          if (!tmp_produces.ContainsKey(itemId))
-            tmp_produces[itemId] = 0;
-          tmp_produces[itemId] += -labData[curLabOffset++];
-        }
+        if (factoryStatsSpan[i].Produced > 0)
+          tmp_produces[itemIds[i]] = factoryStatsSpan[i].Produced;
+        if (factoryStatsSpan[i].Consumed > 0)
+          tmp_consumes[itemIds[i]] = factoryStatsSpan[i].Consumed;
       }
 
       Plugin.Log.LogDebug($"Idle Energy per cycle: {idleEnergyPerCycle}");
@@ -935,7 +788,7 @@ namespace DysonSphereProgram.Modding.Blackbox
 
     public override void LogPowerConsumer()
     {
-      var profilingData = MemoryMarshal.Cast<int, long>(profilingTsData.LevelEntryOffset(0, profilingTick).Slice(pcOffset, assemblerOffset));
+      var profilingData = MemoryMarshal.Cast<int, long>(profilingTsData.LevelEntryOffset(0, profilingTick).Slice(pcOffset, pcSize));
       for (int i = 0; i < pcIds.Count; i++)
       {
         ref readonly var consumer = ref simulationFactory.powerSystem.consumerPool[pcIds[i]];
@@ -943,65 +796,11 @@ namespace DysonSphereProgram.Modding.Blackbox
       }
     }
 
-    public override void LogAssemblerBefore()
-    {
-      var profilingData = profilingTsData.LevelEntryOffset(0, profilingTick).Slice(assemblerOffset, assemblerSize);
-      var curAssemblerOffset = 0;
-      for (int i = 0; i < assemblerIds.Count; i++)
-      {
-        ref readonly var assembler = ref simulationFactory.factorySystem.assemblerPool[assemblerIds[i]];
-        
-        for (int j = 0; j < assembler.served.Length; j++)
-          profilingData[curAssemblerOffset++] = assembler.served[j];
-        for (int j = 0; j < assembler.produced.Length; j++)
-          profilingData[curAssemblerOffset++] = assembler.produced[j];
-      }
-    }
+    public override bool ShouldInterceptAssembler(FactorySystem factorySystem, int assemblerId)
+      => factorySystem == simulationFactory.factorySystem && assemblerIds.Contains(assemblerId);
 
-    public override void LogAssemblerAfter()
-    {
-      var profilingData = profilingTsData.LevelEntryOffset(0, profilingTick).Slice(assemblerOffset, assemblerSize);
-      var curAssemblerOffset = 0;
-      for (int i = 0; i < assemblerIds.Count; i++)
-      {
-        ref readonly var assembler = ref simulationFactory.factorySystem.assemblerPool[assemblerIds[i]];
-
-        for (int j = 0; j < assembler.served.Length; j++)
-          profilingData[curAssemblerOffset++] -= assembler.served[j];
-        for (int j = 0; j < assembler.produced.Length; j++)
-          profilingData[curAssemblerOffset++] -= assembler.produced[j];
-      }
-    }
-
-    public override void LogLabBefore()
-    {
-      var profilingData = profilingTsData.LevelEntryOffset(0, profilingTick).Slice(labOffset, labSize);
-      var curLabOffset = 0;
-      for (int i = 0; i < labIds.Count; i++)
-      {
-        ref readonly var lab = ref simulationFactory.factorySystem.labPool[labIds[i]];
-
-        for (int j = 0; j < lab.served.Length; j++)
-          profilingData[curLabOffset++] = lab.served[j];
-        for (int j = 0; j < lab.produced.Length; j++)
-          profilingData[curLabOffset++] = lab.produced[j];
-      }
-    }
-
-    public override void LogLabAfter()
-    {
-      var profilingData = profilingTsData.LevelEntryOffset(0, profilingTick).Slice(labOffset, labSize);
-      var curLabOffset = 0;
-      for (int i = 0; i < labIds.Count; i++)
-      {
-        ref readonly var lab = ref simulationFactory.factorySystem.labPool[labIds[i]];
-
-        for (int j = 0; j < lab.served.Length; j++)
-          profilingData[curLabOffset++] -= lab.served[j];
-        for (int j = 0; j < lab.produced.Length; j++)
-          profilingData[curLabOffset++] -= lab.produced[j];
-      }
-    }
+    public override bool ShouldInterceptLab(FactorySystem factorySystem, int labId)
+      => factorySystem == simulationFactory.factorySystem && labIds.Contains(labId);
 
     public override void LogStationBefore()
     {
@@ -1031,7 +830,7 @@ namespace DysonSphereProgram.Modding.Blackbox
       }
     }
 
-    public override void LogInserter()
+    public override void DoInserterAdaptiveStacking()
     {
       if (adaptiveStacking || forceNoStacking)
       {
@@ -1039,20 +838,6 @@ namespace DysonSphereProgram.Modding.Blackbox
         {
           ref var inserter = ref simulationFactory.factorySystem.inserterPool[inserterIds[i]];
           PlanetFactorySimulation.DoAdaptiveStacking(ref inserter, simulationFactory, forceNoStacking);
-        }
-      }
-
-      if (profileInserters)
-      {
-        var profilingData = profilingTsData.LevelEntryOffset(0, profilingTick).Slice(inserterOffset, inserterSize);
-        var curInserterOffset = 0;
-        for (int i = 0; i < inserterIds.Count; i++)
-        {
-          ref readonly var inserter = ref simulationFactory.factorySystem.inserterPool[inserterIds[i]];
-          profilingData[curInserterOffset + AnalysisData.fo_stackCount] = inserter.stackCount;
-          profilingData[curInserterOffset + AnalysisData.fo_stage] = (int)inserter.stage;
-          profilingData[curInserterOffset + AnalysisData.fo_idleTick] = (int)inserter.idleTick;
-          curInserterOffset += AnalysisData.size_inserter;
         }
       }
     }

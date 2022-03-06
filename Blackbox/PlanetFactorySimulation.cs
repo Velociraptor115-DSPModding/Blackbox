@@ -9,8 +9,6 @@ namespace DysonSphereProgram.Modding.Blackbox
 {
   internal static class PlanetFactorySimulation
   {
-    internal static int[] dummyRegister = new int[12000];
-
     internal static void ExportImport(Action<BinaryWriter> export, Action<BinaryReader> import)
     {
       using (var ms = new MemoryStream())
@@ -203,10 +201,10 @@ namespace DysonSphereProgram.Modding.Blackbox
       var factory = benchmark.simulationFactory;
       if (factory.factorySystem != null)
       {
+        benchmark.BeginGameTick();
+        
         factory.factorySystem.GameTickBeforePower(0, false);
         benchmark.LogPowerConsumer();
-        benchmark.LogAssemblerBefore();
-        benchmark.LogLabBefore();
 
         // TODO: Assembler game tick
         //   DONE
@@ -221,37 +219,8 @@ namespace DysonSphereProgram.Modding.Blackbox
           if (assembler.recipeId != 0)
           {
             assembler.UpdateNeeds();
-            assembler.InternalUpdate(1, dummyRegister, dummyRegister);
-
-            // Override the output stacking
-            //bool toRewind = false;
-            //for (int j = 0; j < assembler.productCounts.Length; j++)
-            //{
-            //  if (assembler.produced[j] > assembler.productCounts[j] * 3)
-            //  {
-            //    toRewind = true;
-            //    break;
-            //  }
-            //}
-
-            //if (toRewind)
-            //{
-            //  if (assembler.replicating)
-            //  {
-            //    for (int j = 0; j < assembler.requireCounts.Length; j++)
-            //    {
-            //      assembler.served[j] += assembler.requireCounts[j];
-            //    }
-            //  }
-
-            //  for (int j = 0; j < assembler.productCounts.Length; j++)
-            //  {
-            //    assembler.produced[j] -= assembler.productCounts[j];
-            //  }
-            //  assembler.outputing = true;
-            //  assembler.replicating = true;
-            //  assembler.time += assembler.timeSpend;
-            //}
+            if (!IsAssemblerStacking(ref assembler))
+              assembler.InternalUpdate(1, benchmark.productRegister, benchmark.consumeRegister);
             
             factory.entityNeeds[assembler.entityId] = assembler.needs;
           }
@@ -268,13 +237,11 @@ namespace DysonSphereProgram.Modding.Blackbox
           if (!lab.researchMode && lab.recipeId > 0)
           {
             lab.UpdateNeedsAssemble();
-            lab.InternalUpdateAssemble(1, dummyRegister, dummyRegister);
+            lab.InternalUpdateAssemble(1, benchmark.productRegister, benchmark.consumeRegister);
             factory.entityNeeds[lab.entityId] = lab.needs;
           }
         }
 
-        benchmark.LogAssemblerAfter();
-        benchmark.LogLabAfter();
         benchmark.LogStationBefore();
 
         for (int i = 0; i < benchmark.labIds.Count; i++)
@@ -349,7 +316,7 @@ namespace DysonSphereProgram.Modding.Blackbox
         {
           var spraycoaterId = benchmark.spraycoaterIds[i];
           ref var spraycoater = ref factory.cargoTraffic.spraycoaterPool[spraycoaterId];
-          spraycoater.InternalUpdate(factory.cargoTraffic, factory.entityAnimPool, dummyRegister);
+          spraycoater.InternalUpdate(factory.cargoTraffic, factory.entityAnimPool, benchmark.consumeRegister);
         }
 
         // TODO: Piler game tick
@@ -365,10 +332,23 @@ namespace DysonSphereProgram.Modding.Blackbox
         factory.transport.GameTick_OutputToBelt();
 
         benchmark.LogStationAfter();
-        benchmark.LogInserter();
+        benchmark.DoInserterAdaptiveStacking();
 
         benchmark.EndGameTick();
       }
+    }
+
+    public static bool IsAssemblerStacking(ref AssemblerComponent assembler)
+    {
+      for (int j = 0; j < assembler.productCounts.Length; j++)
+      {
+        if (assembler.produced[j] > assembler.productCounts[j] * 4)
+        {
+          return true;
+        }
+      }
+
+      return false;
     }
 
     public static void DoAdaptiveStacking(ref InserterComponent inserter, PlanetFactory factory, bool forceNoStacking)
