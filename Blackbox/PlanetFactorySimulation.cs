@@ -77,6 +77,22 @@ namespace DysonSphereProgram.Modding.Blackbox
       newPowerSystem.consumerCursor = factory.powerSystem.consumerCursor;
       newPowerSystem.consumerRecycleCursor = factory.powerSystem.consumerRecycleCursor;
       factory.powerSystem.consumerPool.CopyTo(newPowerSystem.consumerPool, 0);
+      newPowerSystem.SetNetworkCapacity(factory.powerSystem.netCapacity);
+      newPowerSystem.netCursor = factory.powerSystem.netCursor;
+      newPowerSystem.netRecycleCursor = factory.powerSystem.netRecycleCursor;
+      for (int i = 0; i < newPowerSystem.netCursor; i++)
+      {
+        if (factory.powerSystem.netPool[i] != null)
+        {
+          newPowerSystem.netPool[i] = new PowerNetwork();
+          newPowerSystem.netPool[i].Reset(i);
+          newPowerSystem.netPool[i].consumerRatio = 1;
+        }
+        else
+        {
+          newPowerSystem.netPool[i] = null;
+        }
+      }
       newFactory.powerSystem = newPowerSystem;
 
       var newFactorySystem = new FactorySystem(factory.planet, true);
@@ -149,6 +165,19 @@ namespace DysonSphereProgram.Modding.Blackbox
       powerSystem.consumerCapacity = 0;
       powerSystem.consumerRecycle = null;
       powerSystem.consumerRecycleCursor = 0;
+      for (int i = 0; i < powerSystem.netPool.Length; i++)
+      {
+        if (powerSystem.netPool[i] != null)
+        {
+          powerSystem.netPool[i].Free();
+          powerSystem.netPool[i] = null;
+        }
+      }
+      powerSystem.netPool = null;
+      powerSystem.netCursor = 1;
+      powerSystem.netCapacity = 0;
+      powerSystem.netRecycle = null;
+      powerSystem.netRecycleCursor = 0;
       factory.powerSystem = null;
       
       for (int i = 0; i < factory.transport.stationPool.Length; i++)
@@ -313,6 +342,22 @@ namespace DysonSphereProgram.Modding.Blackbox
               splitter.output0, splitter.output1, splitter.output2,
               splitter.outFilter
             );
+        }
+
+        // TODO: Spraycoater game tick
+        for (int i = 0; i < benchmark.spraycoaterIds.Count; i++)
+        {
+          var spraycoaterId = benchmark.spraycoaterIds[i];
+          ref var spraycoater = ref factory.cargoTraffic.spraycoaterPool[spraycoaterId];
+          spraycoater.InternalUpdate(factory.cargoTraffic, factory.entityAnimPool, dummyRegister);
+        }
+
+        // TODO: Piler game tick
+        for (int i = 0; i < benchmark.pilerIds.Count; i++)
+        {
+          var pilerId = benchmark.pilerIds[i];
+          ref var piler = ref factory.cargoTraffic.pilerPool[pilerId];
+          piler.InternalUpdate(factory.cargoTraffic, factory.entityAnimPool, out _);
         }
 
         // TODO: Station output to belt

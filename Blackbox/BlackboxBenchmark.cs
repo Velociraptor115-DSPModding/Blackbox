@@ -95,6 +95,8 @@ namespace DysonSphereProgram.Modding.Blackbox
     internal readonly ImmutableSortedSet<int> stationIds;
     internal readonly ImmutableSortedSet<int> cargoPathIds;
     internal readonly ImmutableSortedSet<int> splitterIds;
+    internal readonly ImmutableSortedSet<int> pilerIds;
+    internal readonly ImmutableSortedSet<int> spraycoaterIds;
     internal readonly ImmutableSortedSet<int> itemIds;
 
     const int TicksPerSecond = 60;
@@ -168,6 +170,8 @@ namespace DysonSphereProgram.Modding.Blackbox
       this.stationIds = blackbox.Selection.stationIds;
       this.cargoPathIds = blackbox.Selection.cargoPathIds;
       this.splitterIds = blackbox.Selection.splitterIds;
+      this.pilerIds = blackbox.Selection.pilerIds;
+      this.spraycoaterIds = blackbox.Selection.spraycoaterIds;
       this.itemIds = blackbox.Selection.itemIds;
     }
 

@@ -20,6 +20,8 @@ namespace DysonSphereProgram.Modding.Blackbox
     public readonly ImmutableSortedSet<int> stationIds;
     public readonly ImmutableSortedSet<int> cargoPathIds;
     public readonly ImmutableSortedSet<int> splitterIds;
+    public readonly ImmutableSortedSet<int> pilerIds;
+    public readonly ImmutableSortedSet<int> spraycoaterIds;
     public readonly ImmutableSortedSet<int> itemIds;
 
     private BlackboxSelection(
@@ -32,6 +34,8 @@ namespace DysonSphereProgram.Modding.Blackbox
         , ImmutableSortedSet<int> stationIds
         , ImmutableSortedSet<int> cargoPathIds
         , ImmutableSortedSet<int> splitterIds
+        , ImmutableSortedSet<int> pilerIds
+        , ImmutableSortedSet<int> spraycoaterIds
         , ImmutableSortedSet<int> itemIds
       )
     {
@@ -45,6 +49,8 @@ namespace DysonSphereProgram.Modding.Blackbox
       this.stationIds = stationIds;
       this.cargoPathIds = cargoPathIds;
       this.splitterIds = splitterIds;
+      this.pilerIds = pilerIds;
+      this.spraycoaterIds = spraycoaterIds;
       this.itemIds = itemIds;
     }
 
@@ -59,6 +65,8 @@ namespace DysonSphereProgram.Modding.Blackbox
       var tmp_itemIds = new HashSet<int>();
       var tmp_cargoPathIds = new HashSet<int>();
       var tmp_splitterIds = new List<int>();
+      var tmp_pilerIds = new List<int>();
+      var tmp_spraycoaterIds = new List<int>();
 
       foreach (var entityId in entityIds)
       {
@@ -119,6 +127,14 @@ namespace DysonSphereProgram.Modding.Blackbox
         {
           tmp_splitterIds.Add(entity.splitterId);
         }
+        if (entity.pilerId > 0)
+        {
+          tmp_pilerIds.Add(entity.pilerId);
+        }
+        if (entity.spraycoaterId > 0)
+        {
+          tmp_spraycoaterIds.Add(entity.spraycoaterId);
+        }
       }
 
       var pcIds = tmp_pcIds.ToImmutableSortedSet();
@@ -129,6 +145,8 @@ namespace DysonSphereProgram.Modding.Blackbox
       var itemIds = tmp_itemIds.ToImmutableSortedSet();
       var cargoPathIds = tmp_cargoPathIds.ToImmutableSortedSet();
       var splitterIds = tmp_splitterIds.ToImmutableSortedSet();
+      var pilerIds = tmp_pilerIds.ToImmutableSortedSet();
+      var spraycoaterIds = tmp_spraycoaterIds.ToImmutableSortedSet();
       var entityIdsSet = entityIds.ToImmutableSortedSet();
 
       return new BlackboxSelection(
@@ -141,6 +159,8 @@ namespace DysonSphereProgram.Modding.Blackbox
           , stationIds
           , cargoPathIds
           , splitterIds
+          , pilerIds
+          , spraycoaterIds  
           , itemIds
         );
     }
@@ -222,6 +242,12 @@ namespace DysonSphereProgram.Modding.Blackbox
         return false;
 
       if (entity.splitterId > 0)
+        return false;
+      
+      if (entity.pilerId > 0)
+        return false;
+      
+      if (entity.spraycoaterId > 0)
         return false;
 
       if (entity.inserterId > 0)

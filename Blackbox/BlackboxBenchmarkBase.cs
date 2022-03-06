@@ -27,6 +27,10 @@ namespace DysonSphereProgram.Modding.Blackbox
 
     public virtual void LogLabAfter() { }
 
+    public virtual void LogSpraycoaterBefore() { }
+    
+    public virtual void LogSpraycoaterAfter() { }
+
     public virtual void LogStationBefore() { }
 
     public virtual void LogStationAfter() { }
@@ -83,6 +87,7 @@ namespace DysonSphereProgram.Modding.Blackbox
           benchmark.LogAssemblerAfter();
           benchmark.LogLabAfter();
           benchmark.LogStationBefore();
+          benchmark.LogSpraycoaterBefore();
           //Debug.Log("Noting production and consumption");
         }
       }
@@ -106,6 +111,7 @@ namespace DysonSphereProgram.Modding.Blackbox
 
         if (benchmarkFactory == factory)
         {
+          benchmark.LogSpraycoaterAfter();
           benchmark.LogStationAfter();
           benchmark.LogInserter();
         }
