@@ -275,16 +275,10 @@ namespace DysonSphereProgram.Modding.Blackbox
       );
 
       matcher.Advance(1);
-      Plugin.Log.LogDebug(matcher.Opcode);
       matcher.RemoveInstruction();
-      Plugin.Log.LogDebug(matcher.Opcode);
       matcher.Advance(1);
-      Plugin.Log.LogDebug(matcher.Opcode);
       matcher.RemoveInstruction();
-      Plugin.Log.LogDebug(matcher.Opcode);
-
       matcher.Advance(3);
-      Plugin.Log.LogDebug(matcher.Opcode);
 
       matcher.SetOperandAndAdvance(AccessTools.Method(typeof(BlackboxGatewayMethods),
         nameof(BlackboxGatewayMethods.InterceptAssemblerInternalUpdate)));
@@ -312,16 +306,10 @@ namespace DysonSphereProgram.Modding.Blackbox
       );
 
       matcher.Advance(1);
-      Plugin.Log.LogDebug(matcher.Opcode);
       matcher.RemoveInstruction();
-      Plugin.Log.LogDebug(matcher.Opcode);
       matcher.Advance(1);
-      Plugin.Log.LogDebug(matcher.Opcode);
       matcher.RemoveInstruction();
-      Plugin.Log.LogDebug(matcher.Opcode);
-
       matcher.Advance(3);
-      Plugin.Log.LogDebug(matcher.Opcode);
 
       matcher.SetOperandAndAdvance(AccessTools.Method(typeof(BlackboxGatewayMethods),
         nameof(BlackboxGatewayMethods.InterceptLabInternalUpdateAssemble)));
@@ -348,17 +336,11 @@ namespace DysonSphereProgram.Modding.Blackbox
       );
 
       matcher.Advance(1);
-      Plugin.Log.LogDebug(matcher.Opcode);
       matcher.RemoveInstruction();
-      Plugin.Log.LogDebug(matcher.Opcode);
       matcher.Advance(1);
-      Plugin.Log.LogDebug(matcher.Opcode);
       matcher.RemoveInstruction();
       matcher.RemoveInstruction();
-      Plugin.Log.LogDebug(matcher.Opcode);
-
       matcher.Advance(2);
-      Plugin.Log.LogDebug(matcher.Opcode);
 
       matcher.SetOperandAndAdvance(AccessTools.Method(typeof(BlackboxGatewayMethods),
         nameof(BlackboxGatewayMethods.InterceptSpraycoaterInternalUpdate)));
