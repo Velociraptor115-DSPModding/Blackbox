@@ -22,6 +22,7 @@ namespace DysonSphereProgram.Modding.Blackbox
     public readonly ImmutableSortedSet<int> splitterIds;
     public readonly ImmutableSortedSet<int> pilerIds;
     public readonly ImmutableSortedSet<int> spraycoaterIds;
+    public readonly ImmutableSortedSet<int> monitorIds;
     public readonly ImmutableSortedSet<int> itemIds;
 
     private BlackboxSelection(
@@ -36,6 +37,7 @@ namespace DysonSphereProgram.Modding.Blackbox
         , ImmutableSortedSet<int> splitterIds
         , ImmutableSortedSet<int> pilerIds
         , ImmutableSortedSet<int> spraycoaterIds
+        , ImmutableSortedSet<int> monitorIds
         , ImmutableSortedSet<int> itemIds
       )
     {
@@ -51,6 +53,7 @@ namespace DysonSphereProgram.Modding.Blackbox
       this.splitterIds = splitterIds;
       this.pilerIds = pilerIds;
       this.spraycoaterIds = spraycoaterIds;
+      this.monitorIds = monitorIds;
       this.itemIds = itemIds;
     }
 
@@ -67,6 +70,7 @@ namespace DysonSphereProgram.Modding.Blackbox
       var tmp_splitterIds = new List<int>();
       var tmp_pilerIds = new List<int>();
       var tmp_spraycoaterIds = new List<int>();
+      var tmp_monitorIds = new List<int>();
 
       foreach (var entityId in entityIds)
       {
@@ -135,6 +139,10 @@ namespace DysonSphereProgram.Modding.Blackbox
         {
           tmp_spraycoaterIds.Add(entity.spraycoaterId);
         }
+        if (entity.monitorId > 0)
+        {
+          tmp_monitorIds.Add(entity.monitorId);
+        }
       }
 
       var pcIds = tmp_pcIds.ToImmutableSortedSet();
@@ -147,6 +155,7 @@ namespace DysonSphereProgram.Modding.Blackbox
       var splitterIds = tmp_splitterIds.ToImmutableSortedSet();
       var pilerIds = tmp_pilerIds.ToImmutableSortedSet();
       var spraycoaterIds = tmp_spraycoaterIds.ToImmutableSortedSet();
+      var monitorIds = tmp_monitorIds.ToImmutableSortedSet();
       var entityIdsSet = entityIds.ToImmutableSortedSet();
 
       return new BlackboxSelection(
@@ -160,7 +169,8 @@ namespace DysonSphereProgram.Modding.Blackbox
           , cargoPathIds
           , splitterIds
           , pilerIds
-          , spraycoaterIds  
+          , spraycoaterIds
+          , monitorIds
           , itemIds
         );
     }
@@ -248,6 +258,9 @@ namespace DysonSphereProgram.Modding.Blackbox
         return false;
       
       if (entity.spraycoaterId > 0)
+        return false;
+
+      if (entity.monitorId > 0)
         return false;
 
       if (entity.inserterId > 0)

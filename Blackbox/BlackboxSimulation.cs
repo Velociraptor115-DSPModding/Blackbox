@@ -120,6 +120,7 @@ namespace DysonSphereProgram.Modding.Blackbox
       var splitterIds = blackbox.Selection.splitterIds;
       var spraycoaterIds = blackbox.Selection.spraycoaterIds;
       var pilerIds = blackbox.Selection.pilerIds;
+      var monitorIds = blackbox.Selection.monitorIds;
 
       for (int i = 0; i < pcIds.Count; i++)
       {
@@ -167,6 +168,10 @@ namespace DysonSphereProgram.Modding.Blackbox
       {
         factory.cargoTraffic.pilerPool[pilerIds[i]].id = -blackbox.Id;
       }
+      for (int i = 0; i < monitorIds.Count; i++)
+      {
+        factory.cargoTraffic.monitorPool[monitorIds[i]].id = -blackbox.Id;
+      }
 
       isBlackboxSimulating = true;
     }
@@ -187,6 +192,7 @@ namespace DysonSphereProgram.Modding.Blackbox
       var splitterIds = blackbox.Selection.splitterIds;
       var spraycoaterIds = blackbox.Selection.spraycoaterIds;
       var pilerIds = blackbox.Selection.pilerIds;
+      var monitorIds = blackbox.Selection.monitorIds;
 
       for (int i = 0; i < pcIds.Count; i++)
       {
@@ -228,6 +234,10 @@ namespace DysonSphereProgram.Modding.Blackbox
       for (int i = 0; i < pilerIds.Count; i++)
       {
         factory.cargoTraffic.pilerPool[pilerIds[i]].id = pilerIds[i];
+      }
+      for (int i = 0; i < monitorIds.Count; i++)
+      {
+        factory.cargoTraffic.monitorPool[monitorIds[i]].id = monitorIds[i];
       }
 
       isBlackboxSimulating = false;
