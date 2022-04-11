@@ -1,3 +1,4 @@
+﻿using System.Text;
 using DysonSphereProgram.Modding.Blackbox.UI.Builder;
 using UnityEngine;
 using UnityEngine.UI;
@@ -14,6 +15,7 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
     private Localizer titleLocalizer;
     private Text statusText;
     private Text pauseResumeBtnText;
+    private Text recipeText;
 
     private Button pauseResumeBtn;
     private Image progressImg;
@@ -23,6 +25,9 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
     private static Color warningColor = new Color(0.9906f, 0.5897f, 0.3691f, 0.7059f);
     private static Color okColor = new Color(0.3821f, 0.8455f, 1f, 0.7059f);
     private static Color idleColor = new Color(0.5882f, 0.5882f, 0.5882f, 0.8196f);
+
+    private StringBuilder recipeSB = new();
+    private StringBuilder powerSB = new("         W", 12);
 
     public override void _OnCreate()
     {
@@ -69,6 +74,12 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
           .SelectChild("text")
           .GetComponent<Text>()
           ;
+
+      recipeText =
+        gameObject
+          .SelectDescendant("recipe-box", "scroll-view", "viewport", "content", "recipe-text")
+          .GetComponent<Text>()
+          ;
     }
 
     public override void _OnDestroy()
@@ -95,6 +106,99 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
       pauseResumeBtn.onClick.AddListener(OnPauseResumeBtnClick);
 
       Debug.Log("Setting produce to Active");
+
+      if (blackbox.Recipe != null)
+      {
+        var recipe = blackbox.Recipe;
+        if (!blackbox.FactoryRef.TryGetTarget(out var planetFactory))
+        {
+          Plugin.Log.LogError("PlanetFactory instance pulled out from under " + nameof(UIBlackboxInspectWindow) + " in " + nameof(_OnInit));
+          return false;
+        }
+        
+        recipeSB.Clear();
+        recipeSB.AppendLine("Consumes:");
+        foreach (var item in recipe.consumes)
+        {
+          var itemName = LDB.ItemName(item.Key);
+          recipeSB.Append("- ");
+          recipeSB.Append(item.Value);
+          recipeSB.Append(" ");
+          recipeSB.AppendLine(itemName);
+        }
+        recipeSB.AppendLine();
+        
+        recipeSB.AppendLine("Produces:");
+        foreach (var item in recipe.produces)
+        {
+          var itemName = LDB.ItemName(item.Key);
+          recipeSB.Append("- ");
+          recipeSB.Append(item.Value);
+          recipeSB.Append(" ");
+          recipeSB.AppendLine(itemName);
+        }
+        recipeSB.AppendLine();
+        
+        recipeSB.AppendLine("Inputs:");
+        foreach (var stationIdx in recipe.inputs)
+        {
+          var stationId = blackbox.Selection.stationIds[stationIdx.Key];
+          var station = planetFactory.transport.stationPool[stationId];
+          var stationName =
+            string.IsNullOrEmpty(station.name) ?
+              station.isStellar ? "星际站点号".Translate() + station.gid : "本地站点号".Translate() + station.id
+              : station.name;
+          Plugin.Log.LogDebug(stationIdx.Key);
+          recipeSB.Append("- ");
+          recipeSB.AppendLine(stationName);
+          foreach (var itemId in stationIdx.Value)
+          {
+            var itemName = LDB.ItemName(itemId.Key);
+            recipeSB.Append("   -- ");
+            recipeSB.Append(itemId.Value);
+            recipeSB.Append(" ");
+            recipeSB.AppendLine(itemName);
+          }
+        }
+        recipeSB.AppendLine();
+        
+        recipeSB.AppendLine("Outputs:");
+        foreach (var stationIdx in recipe.outputs)
+        {
+          var stationId = blackbox.Selection.stationIds[stationIdx.Key];
+          var station = planetFactory.transport.stationPool[stationId];
+          var stationName =
+            string.IsNullOrEmpty(station.name) ?
+              station.isStellar ? "星际站点号".Translate() + station.gid : "本地站点号".Translate() + station.id
+              : station.name;
+          recipeSB.Append("- ");
+          recipeSB.AppendLine(stationName);
+          foreach (var itemId in stationIdx.Value)
+          {
+            var itemName = LDB.ItemName(itemId.Key);
+            recipeSB.Append("   -- ");
+            recipeSB.Append(itemId.Value);
+            recipeSB.Append(" ");
+            recipeSB.AppendLine(itemName);
+          }
+        }
+        recipeSB.AppendLine();
+        
+        recipeSB.Append("Idle Energy: ");
+        StringBuilderUtility.WriteKMG(powerSB, 8, recipe.idleEnergyPerTick * 60, true);
+        recipeSB.AppendLine(powerSB.ToString());
+        recipeSB.Append("Work Energy: ");
+        StringBuilderUtility.WriteKMG(powerSB, 8, recipe.workingEnergyPerTick * 60, true);
+        recipeSB.AppendLine(powerSB.ToString());
+        recipeSB.Append("Cycle Time: ");
+        recipeSB.Append(System.Math.Round(recipe.timeSpend / 60f, 2));
+        recipeSB.AppendLine("s");
+        recipeText.text = recipeSB.ToString();
+      }
+      else
+      {
+        recipeText.text = "";
+      }
 
       return true;
     }
@@ -280,6 +384,72 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
           .OfSize(90, 30)
           .WithVisuals((IProperties<Image>) UIBuilder.buttonImgProperties)
           .WithFontSize(14)
+          ;
+      
+      var recipeBox =
+        Create.UIElement("recipe-box")
+          .ChildOf(inspectWindowObj)
+          .WithMinMaxAnchor(new Vector2(0.3f, 0f), new Vector2(0.9f, 0.6f))
+          .WithPivot(0.5f, 0f)
+          .At(0, 40)
+          .OfSize(0, -30)
+          ;
+      
+      var recipeLabel =
+        Create.Text("label")
+          .ChildOf(recipeBox)
+          .WithAnchor(Anchor.TopLeft)
+          .WithPivot(0, 0)
+          .At(0, 0)
+          .WithAlignment(TextAnchor.UpperLeft)
+          .OfSize(100, 30)
+          .WithFont(UIBuilder.fontSAIRASB)
+          .WithText("Recipe")
+          ;
+
+      var recipeScrollConfiguration = new ScrollViewConfiguration
+      {
+        axis = ScrollViewAxis.VerticalOnly,
+        scrollBarWidth = 5
+      };
+      
+      var recipeScrollView =
+        Create.ScrollView("scroll-view", recipeScrollConfiguration)
+          .ChildOf(recipeBox)
+          .WithAnchor(Anchor.Stretch)
+          .At(0, 0)
+          ;
+      
+      var contentRoot = recipeScrollView.scrollRect.content.gameObject;
+      var viewportBg =
+        Create.UIElement("bg")
+          .ChildOf(recipeScrollView.scrollRect.viewport)
+          .WithAnchor(Anchor.Stretch)
+          .WithPivot(0, 1)
+          .At(0, 0)
+          .WithComponent((Image x) => x.color = Color.black.AlphaMultiplied(0.4f));
+    
+      viewportBg.transform.SetAsFirstSibling();
+
+      Select.VerticalLayoutGroup(contentRoot)
+        .WithAnchor(Anchor.Stretch)
+        .At(0, 0)
+        .WithChildAlignment(TextAnchor.UpperLeft)
+        .ForceExpand(width: true, height: false)
+        .ChildControls(width: true, height: true)
+        .WithContentSizeFitter(ContentSizeFitter.FitMode.Unconstrained, ContentSizeFitter.FitMode.PreferredSize)
+        ;
+
+      var recipeText =
+        Create.Text("recipe-text")
+          .ChildOf(contentRoot)
+          .WithAnchor(Anchor.TopLeft)
+          .WithPivot(0, 0)
+          .At(0, 0)
+          .WithOverflow(HorizontalWrapMode.Wrap, VerticalWrapMode.Overflow)
+          .WithAlignment(TextAnchor.UpperLeft)
+          .WithLayoutSize(0, 0, flexibleWidth: 1f)
+          .WithContentSizeFitter(ContentSizeFitter.FitMode.PreferredSize, ContentSizeFitter.FitMode.PreferredSize)
           ;
 
       inspectWindowObj.InitializeComponent(out uiBlackboxInspectWindow);
