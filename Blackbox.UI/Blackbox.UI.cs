@@ -35,6 +35,12 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
         blackboxId = -factory.cargoTraffic.splitterPool[entity.splitterId].id;
       if (entity.inserterId > 0 && factory.factorySystem.inserterPool[entity.inserterId].id < 0)
         blackboxId = -factory.factorySystem.inserterPool[entity.inserterId].id;
+      if (entity.spraycoaterId > 0 && factory.cargoTraffic.spraycoaterPool[entity.spraycoaterId].id < 0)
+        blackboxId = -factory.cargoTraffic.spraycoaterPool[entity.spraycoaterId].id;
+      if (entity.pilerId > 0 && factory.cargoTraffic.pilerPool[entity.pilerId].id < 0)
+        blackboxId = -factory.cargoTraffic.pilerPool[entity.pilerId].id;
+      if (entity.monitorId > 0 && factory.cargoTraffic.monitorPool[entity.monitorId].id < 0)
+        blackboxId = -factory.cargoTraffic.monitorPool[entity.monitorId].id;
       
       var stationId = entity.stationId;
 
