@@ -56,13 +56,7 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
       {
         Debug.Log($"Seems to be part of Blackbox#{blackbox.Id}");
         UIRoot.instance.uiGame.ShutAllFunctionWindow();
-        var uiBlackboxInspectWindow = BlackboxUIGateway.BlackboxInspectWindow?.Component;
-        if (uiBlackboxInspectWindow != null)
-        {
-          uiBlackboxInspectWindow._Init(blackbox);
-          uiBlackboxInspectWindow._Open();
-          uiBlackboxInspectWindow.transform.SetAsLastSibling();
-        }
+        BlackboxUIGateway.InspectBlackbox(blackbox);
         if (stationId > 0)
         {
           UIRoot.instance.uiGame.stationWindow.stationId = stationId;
@@ -177,6 +171,23 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
           blackboxInspectWindow
         , blackboxManagerWindow
       };
+    }
+    
+    public static void InspectBlackbox(Blackbox blackbox)
+    {
+      var uiBlackboxInspectWindow = BlackboxInspectWindow?.Component;
+      if (uiBlackboxInspectWindow != null)
+      {
+        if (uiBlackboxInspectWindow.active && uiBlackboxInspectWindow.data != blackbox)
+        {
+          uiBlackboxInspectWindow._Close();
+          uiBlackboxInspectWindow._Free();
+        }
+        
+        uiBlackboxInspectWindow._Init(blackbox);
+        uiBlackboxInspectWindow._Open();
+        uiBlackboxInspectWindow.transform.SetAsLastSibling();
+      }
     }
 
     public static void CreateUI()

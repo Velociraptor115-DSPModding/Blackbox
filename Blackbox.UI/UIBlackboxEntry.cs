@@ -61,6 +61,7 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
 
     public Image highlightBtnImage;
 
+    public Button inspectBtn;
     public Button pauseResumeBtn;
     public Button highlightBtn;
     public Button deleteBtn;
@@ -93,6 +94,12 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
         gameObject
           .SelectDescendant("status-label")
           .GetComponent<Text>()
+          ;
+      
+      inspectBtn =
+        gameObject
+          .SelectDescendant("inspect-btn")
+          .GetComponent<Button>()
           ;
 
       pauseResumeBtn =
@@ -145,6 +152,7 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
 
     public override bool _OnInit()
     {
+      inspectBtn.onClick.AddListener(OnInspectBtnClick);
       pauseResumeBtn.onClick.AddListener(OnPauseResumeBtnClick);
       highlightBtn.onClick.AddListener(OnHighlightBtnClick);
       deleteBtn.onClick.AddListener(OnDeleteBtnClick);
@@ -153,6 +161,7 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
 
     public override void _OnFree()
     {
+      inspectBtn.onClick.RemoveListener(OnInspectBtnClick);
       pauseResumeBtn.onClick.RemoveListener(OnPauseResumeBtnClick);
       highlightBtn.onClick.RemoveListener(OnHighlightBtnClick);
       deleteBtn.onClick.RemoveListener(OnDeleteBtnClick);
@@ -238,6 +247,15 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
     private void OnBtnClick()
     {
       Plugin.Log.LogDebug($"Button clicked from {nameof(UIBlackboxEntry)} {nameText.text}");
+    }
+    
+    private void OnInspectBtnClick()
+    {
+      OnBtnClick();
+      if (entryData == null)
+        return;
+
+      BlackboxUIGateway.InspectBlackbox(entryData);
     }
 
     private void OnPauseResumeBtnClick()

@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using DysonSphereProgram.Modding.Blackbox.UI.Builder;
 using UnityEngine;
 using UnityEngine.UI;
@@ -511,12 +511,22 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
             .WithAlignment(TextAnchor.MiddleRight)
             .WithText("0 / 100")
             ;
+        
+        var inspectBtn =
+          Create.Button("inspect-btn", "Inspect")
+            .ChildOf(blackboxEntryPrefab)
+            .WithAnchor(Anchor.BottomLeft)
+            .At(30, 20)
+            .OfSize(90, 30)
+            .WithVisuals((IProperties<Image>) UIBuilder.buttonImgProperties)
+            .WithFontSize(14)
+            ;
 
         var pauseResumeBtn =
           Create.Button("pause-resume-btn", "Pause / Resume")
             .ChildOf(blackboxEntryPrefab)
             .WithAnchor(Anchor.BottomLeft)
-            .At(30, 20)
+            .At(150, 20)
             .OfSize(90, 30)
             .WithVisuals((IProperties<Image>) UIBuilder.buttonImgProperties)
             .WithFontSize(14)
