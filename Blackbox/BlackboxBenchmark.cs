@@ -181,7 +181,7 @@ namespace DysonSphereProgram.Modding.Blackbox
 
       public void Summarize(Span<int> detailed, Span<int> summary)
       {
-        var pcCount = analysis.pcIds.Count;
+        var pcCount = 1; // analysis.pcIds.Count;
         var pcDetailed = MemoryMarshal.Cast<int, long>(detailed.Slice(pcOffset, pcCount * 2));
         var pcSummary = MemoryMarshal.Cast<int, long>(summary.Slice(pcOffset, pcCount * 2));
         for (int i = 0; i < pcSummary.Length; i++)
@@ -231,7 +231,7 @@ namespace DysonSphereProgram.Modding.Blackbox
 
       this.stationOffsets = new int[stationIds.Count];
 
-      this.pcSize = AnalysisData.size_powerConsumer * pcIds.Count;
+      this.pcSize = AnalysisData.size_powerConsumer * 1; // pcIds.Count;
       this.stationSize = 0;
       for (int i = 0; i < stationIds.Count; i++)
       {
@@ -434,9 +434,10 @@ namespace DysonSphereProgram.Modding.Blackbox
       //   continuousLogger.Write(pcData[i]);
       //   continuousLogger.Write(',');
       // }
-      long pcDataTotal = 0;
-      for (int i = 0; i < pcIds.Count; i++)
-        pcDataTotal += pcData[i];
+      // long pcDataTotal = 0;
+      // for (int i = 0; i < pcIds.Count; i++)
+      //   pcDataTotal += pcData[i];
+      long pcDataTotal = pcData[0];
       continuousLogger.Write(pcDataTotal);
       continuousLogger.Write(',');
 
@@ -792,7 +793,8 @@ namespace DysonSphereProgram.Modding.Blackbox
       for (int i = 0; i < pcIds.Count; i++)
       {
         ref readonly var consumer = ref simulationFactory.powerSystem.consumerPool[pcIds[i]];
-        profilingData[i] = consumer.requiredEnergy;
+        // profilingData[i] = consumer.requiredEnergy;
+        profilingData[0] += consumer.requiredEnergy;
       }
     }
 
