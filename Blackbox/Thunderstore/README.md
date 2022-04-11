@@ -15,6 +15,32 @@ This mod allows you to "blackbox" sets of buildings together to improve your UPS
 I will provide clearer explanations once the mod is out of alpha. For now, I just want to get this out there  
 You are encouraged to contact me on the DSP Discord to provide feedback
 
+## Known issues
+
+* The background benchmarking (default option) sometimes converges too fast with a suboptimal recipe. In such a case, you can try unticking the "Analyse in background thread" option and try again to see if it gives a better recipe
+* The benchmarking takes a much longer time to converge, if the setup oversaturates the belt. This is because the excess items need to back up through the setup, till it reaches the input stations, for the recipe to stabilize
+
+## Roadmap
+
+* Support proliferated output
+* Properly capture proliferator use in the consumption metrics
+* Provide visual feedback regarding which item / recipe is preventing the setup from being blackboxable
+* Figure out static analysis logic (if possible)
+
+## Changelog
+
+### [v0.0.5](https://dsp.thunderstore.io/package/Raptor/Blackbox/0.0.5/)
+* Fix support for spraycoaters, pilers and traffic monitors
+* Consolidate power consumer logging to reduce memory required for benchmarking
+* Add recipe display in the inspect window
+* Add inspect button to the entries in the overview panel
+
+### [v0.0.4](https://dsp.thunderstore.io/package/Raptor/Blackbox/0.0.4/)
+* Update code to support the Jan 20 update (game version 0.9.24.11182), i.e. spraycoaters and pilers
+
+### [v0.0.3](https://dsp.thunderstore.io/package/Raptor/Blackbox/0.0.3/)
+* First working version, I think
+
 ## Contact / Feedback / Bug Reports
 You can either find me on the DSP Discord's #modding channel  
 Or you can create an issue on [GitHub](https://github.com/Velociraptor115/DSPMods)  
