@@ -3,6 +3,8 @@
   <PropertyGroup>
     <TargetFramework>net48</TargetFramework>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>DysonSphereProgram.Modding.Blackbox</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
