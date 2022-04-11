@@ -1,4 +1,4 @@
-﻿using System.IO;
+using System.IO;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -69,13 +69,6 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
     }
 
     [HarmonyPostfix]
-    [HarmonyPatch(typeof(UIGame), nameof(UIGame._OnCreate))]
-    static void UIGame___OnCreate()
-    {
-      BlackboxUIGateway.Create();
-    }
-
-    [HarmonyPostfix]
     [HarmonyPatch(typeof(UIGame), nameof(UIGame._OnUpdate))]
     static void UIGame___OnUpdate()
     {
@@ -102,7 +95,7 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
     [HarmonyPatch(typeof(UIGame), nameof(UIGame._OnDestroy))]
     static void UIGame___OnDestroy()
     {
-      BlackboxUIGateway.Destroy();
+      BlackboxUIGateway.DestroyUI();
     }
 
     [HarmonyPostfix]
@@ -158,20 +151,11 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
     }
   }
 
-  public class NextFrameInvokeHelper: MonoBehaviour
-  {
-    public void Start()
-    {
-
-    }
-  }
-
   public static class BlackboxUIGateway
   {
     private static ModdedUIBlackboxInspectWindow blackboxInspectWindow;
     private static ModdedUIBlackboxManagerWindow blackboxManagerWindow;
     private static List<IModdedUI> moddedUIs;
-    private static NextFrameInvokeHelper nextFrameInvokeHelper;
     public static Sprite iconSprite;
 
     public static ModdedUIBlackboxInspectWindow BlackboxInspectWindow => blackboxInspectWindow;
@@ -189,7 +173,7 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
       };
     }
 
-    public static void Create()
+    public static void CreateUI()
     {
       {
         var newTex = new Texture2D(1, 1);
@@ -198,38 +182,20 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
         iconSprite = Sprite.Create(newTex, new Rect(0, 0, 256, 256), new Vector2(0.5f, 0.5f));
       }
 
-      var thisRoot = new GameObject("bb-ui-gateway-root");
-      thisRoot.SetActive(true);
-      nextFrameInvokeHelper = thisRoot.GetOrCreateComponent<NextFrameInvokeHelper>();
-      CreateObjectsAndPrefabs();
-      nextFrameInvokeHelper.InvokeNextFrame(CreateComponents);
-    }
-
-    private static void CreateObjectsAndPrefabs()
-    {
       foreach (var moddedUI in moddedUIs)
       {
         if (moddedUI.GameObject != null)
           throw new System.Exception("Blackbox UI mod encountered already created objects");
-        moddedUI.CreateObjectsAndPrefabs();
+        moddedUI.CreateUI();
       }
     }
 
-    private static void CreateComponents()
+    public static void DestroyUI()
     {
       foreach (var moddedUI in moddedUIs)
       {
-        moddedUI.CreateComponents();
+        moddedUI.DestroyUI();
       }
-    }
-
-    public static void Destroy()
-    {
-      foreach (var moddedUI in moddedUIs)
-      {
-        moddedUI.Destroy();
-      }
-      Object.Destroy(nextFrameInvokeHelper);
     }
 
     public static void Free()
@@ -246,79 +212,6 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
       {
         moddedUI.Update();
       }
-    }
-  }
-
-  public static class GameObjectExtensions
-  {
-    public static GameObject DestroyChildren(this GameObject gameObject, params string[] names)
-    {
-      var x = gameObject;
-      foreach (var name in names)
-        x = x.DestroyChild(name);
-      return x;
-    }
-    public static GameObject DestroyChild(this GameObject gameObject, string name)
-    {
-      if (gameObject == null)
-        return null;
-      var child = gameObject.transform.Find(name)?.gameObject;
-      if (child != null)
-        Object.Destroy(child);
-      return gameObject;
-    }
-
-    public static GameObject DestroyComponent<T>(this GameObject gameObject) where T: Component
-    {
-      if (gameObject == null)
-        return null;
-      var component = gameObject.GetComponent<T>();
-      if (component != null)
-        Object.Destroy(component);
-      return gameObject;
-    }
-
-    public static T GetOrCreateComponent<T>(this GameObject gameObject) where T : Component
-    {
-      if (gameObject == null)
-        return null;
-      var component = gameObject.GetComponent<T>();
-      if (component == null)
-        component = gameObject.AddComponent<T>();
-      return component;
-    }
-
-    public static GameObject SelectChild(this GameObject gameObject, string name)
-    {
-      if (gameObject == null)
-        return null;
-      return gameObject.transform.Find(name)?.gameObject;
-    }
-
-    public static GameObject SelectDescendant(this GameObject gameObject, params string[] names)
-    {
-      var x = gameObject;
-      foreach (var name in names)
-        x = x.SelectChild(name);
-      return x;
-    }
-
-    public static void InvokeNextFrame(this MonoBehaviour instance, System.Action executable)
-    {
-      try
-      {
-        instance.StartCoroutine(_InvokeNextFrame(executable));
-      }
-      catch
-      {
-        Plugin.Log.LogError("Couldn't invoke in next frame");
-      }
-    }
-
-    private static IEnumerator _InvokeNextFrame(System.Action executable)
-    {
-      yield return null;
-      executable();
     }
   }
 }

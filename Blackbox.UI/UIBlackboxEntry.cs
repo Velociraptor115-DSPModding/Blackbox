@@ -1,5 +1,6 @@
 ﻿using System.Linq;
 using System.Collections.Generic;
+using DysonSphereProgram.Modding.Blackbox.UI.Builder;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.Events;
@@ -8,7 +9,6 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
 { 
   public class UIProgressBar: MonoBehaviour
   {
-    public Text title { get; private set; }
     public Text progressText { get; private set; }
 
     public RectTransform progressPointRect { get; private set; }
@@ -31,12 +31,6 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
 
     public void Awake()
     {
-      title =
-        gameObject
-          .SelectChild("title")
-          .GetComponent<Text>()
-          ;
-
       progressText =
         gameObject
           .SelectChild("progress-text")
@@ -67,9 +61,9 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
 
     public Image highlightBtnImage;
 
-    public UIButton pauseResumeBtn;
-    public UIButton highlightBtn;
-    public UIButton deleteBtn;
+    public Button pauseResumeBtn;
+    public Button highlightBtn;
+    public Button deleteBtn;
 
     public UIProgressBar progressBar;
 
@@ -91,7 +85,7 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
 
       nameText =
         gameObject
-          .SelectDescendant("item-desc", "item-name")
+          .SelectDescendant("name")
           .GetComponent<Text>()
           ;
 
@@ -104,7 +98,7 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
       pauseResumeBtn =
         gameObject
           .SelectDescendant("pause-resume-btn")
-          .GetComponent<UIButton>()
+          .GetComponent<Button>()
           ;
 
       pauseResumeBtnText =
@@ -117,7 +111,7 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
       highlightBtn =
         gameObject
           .SelectDescendant("highlight-btn")
-          .GetComponent<UIButton>()
+          .GetComponent<Button>()
           ;
 
       highlightBtnText =
@@ -134,7 +128,7 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
       deleteBtn =
         gameObject
           .SelectDescendant("delete-btn")
-          .GetComponent<UIButton>()
+          .GetComponent<Button>()
           ;
 
       progressBar =
@@ -151,17 +145,17 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
 
     public override bool _OnInit()
     {
-      pauseResumeBtn.onClick += OnPauseResumeBtnClick;
-      highlightBtn.onClick += OnHighlightBtnClick;
-      deleteBtn.onClick += OnDeleteBtnClick;
+      pauseResumeBtn.onClick.AddListener(OnPauseResumeBtnClick);
+      highlightBtn.onClick.AddListener(OnHighlightBtnClick);
+      deleteBtn.onClick.AddListener(OnDeleteBtnClick);
       return true;
     }
 
     public override void _OnFree()
     {
-      pauseResumeBtn.onClick -= OnPauseResumeBtnClick;
-      highlightBtn.onClick -= OnHighlightBtnClick;
-      deleteBtn.onClick -= OnDeleteBtnClick;
+      pauseResumeBtn.onClick.RemoveListener(OnPauseResumeBtnClick);
+      highlightBtn.onClick.RemoveListener(OnHighlightBtnClick);
+      deleteBtn.onClick.RemoveListener(OnDeleteBtnClick);
     }
 
     public override void _OnUpdate()
@@ -213,7 +207,6 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
           pauseResumeBtnText.text = "Resume";
 
         progressBar.gameObject.SetActive(true);
-        progressBar.title.text = "";
         progressBar.progress = entryData.Simulation.CycleProgress;
         progressBar.progressText.text = entryData.Simulation.CycleProgressText;
       }
@@ -221,7 +214,6 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
       if (entryData.Analysis != null)
       {
         progressBar.gameObject.SetActive(true);
-        progressBar.title.text = "";
         progressBar.progress = entryData.Analysis.Progress;
         progressBar.progressText.text = entryData.Analysis.ProgressText;
       }
@@ -248,7 +240,7 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
       Plugin.Log.LogDebug($"Button clicked from {nameof(UIBlackboxEntry)} {nameText.text}");
     }
 
-    private void OnPauseResumeBtnClick(int _)
+    private void OnPauseResumeBtnClick()
     {
       OnBtnClick();
       if (entryData == null)
@@ -263,7 +255,7 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
         entryData.Simulation.ResumeBlackboxing();
     }
 
-    private void OnHighlightBtnClick(int _)
+    private void OnHighlightBtnClick()
     {
       OnBtnClick();
       if (entryData == null)
@@ -279,7 +271,7 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
         highlight.RequestHighlight(entryData);
     }
 
-    private void OnDeleteBtnClick(int _)
+    private void OnDeleteBtnClick()
     {
       OnBtnClick();
       if (entryData == null)

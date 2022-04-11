@@ -4,10 +4,8 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
 {
   public interface IModdedUI
   {
-    void CreateObjectsAndPrefabs();
-
-    void CreateComponents();
-    void Destroy();
+    void CreateUI();
+    void DestroyUI();
 
     void Init();
     void Free();

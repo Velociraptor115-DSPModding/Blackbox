@@ -1,5 +1,6 @@
 ﻿using System.Linq;
 using System.Collections.Generic;
+using DysonSphereProgram.Modding.Blackbox.UI.Builder;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.Events;
@@ -8,9 +9,6 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
 { 
   public class UIBlackboxOverviewPanel: ManualBehaviour
   {
-    UIComboBox astroFilter;
-    UIComboBox blackboxFilter;
-
     RectTransform scrollContentRect;
     RectTransform scrollViewportRect;
     RectTransform scrollVbarRect;
@@ -18,23 +16,9 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
 
     int entriesLen;
     UIBlackboxEntry[] entries;
-
-    int debounceControl;
     
     public override void _OnCreate()
     {
-      astroFilter =
-        gameObject
-          .SelectDescendant("top", "AstroComboBox")
-          ?.GetComponent<UIComboBox>()
-          ;
-
-      blackboxFilter =
-        gameObject
-          .SelectDescendant("top", "BlackboxComboBox")
-          ?.GetComponent<UIComboBox>()
-          ;
-
       scrollContentRect =
         gameObject
           .SelectDescendant("scroll-view", "viewport", "content")
@@ -92,10 +76,8 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
 
     public override void _OnUpdate()
     {
-      RefreshComboBoxes();
-
       var blackboxCount = BlackboxManager.Instance.blackboxes.Count;
-      var displayCount = (blackboxCount > 6) ? 7 : blackboxCount;
+      var displayCount = (blackboxCount > entriesLen) ? entriesLen : blackboxCount;
       var height = blackboxEntry.rectTransform.rect.height;
       if (height * blackboxCount < scrollContentRect.sizeDelta.y - 1f)
       {
@@ -106,7 +88,7 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
       }
       scrollContentRect.sizeDelta = new Vector2(scrollContentRect.sizeDelta.x, height * blackboxCount);
       scrollContentRect.anchoredPosition = new Vector2(Mathf.Round(scrollContentRect.anchoredPosition.x), Mathf.Round(scrollContentRect.anchoredPosition.y));
-      scrollViewportRect.sizeDelta = (scrollVbarRect.gameObject.activeSelf ? new Vector2(-6f, 0f) : Vector2.zero);
+      scrollViewportRect.sizeDelta = (scrollVbarRect.gameObject.activeSelf ? new Vector2(-scrollVbarRect.rect.width, 0f) : Vector2.zero);
       int startIdx = (blackboxCount == 0) ? -1 : ((int)scrollContentRect.anchoredPosition.y / (int)height);
       int endIdx = startIdx + displayCount - 1;
       for (int i = 0; i < entriesLen; i++)
@@ -118,7 +100,7 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
           uiBlackboxEntry.index = blackboxDisplayIdx;
           uiBlackboxEntry.SetTrans();
         }
-        if (blackboxDisplayIdx <= endIdx && blackboxDisplayIdx < BlackboxManager.Instance.blackboxes.Count)
+        if (blackboxDisplayIdx >= 0 && blackboxDisplayIdx <= endIdx && blackboxDisplayIdx < BlackboxManager.Instance.blackboxes.Count)
         {
           uiBlackboxEntry.entryData = BlackboxManager.Instance.blackboxes[blackboxDisplayIdx];
           uiBlackboxEntry._Open();
@@ -130,30 +112,6 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
         }
 
         uiBlackboxEntry._Update();
-      }
-    }
-
-    private void RefreshComboBoxes()
-    {
-      debounceControl++;
-
-      if (debounceControl >= 60)
-      {
-        debounceControl = 0;
-
-        var items = blackboxFilter.Items;
-        var itemsData = blackboxFilter.ItemsData;
-
-        items.Clear();
-        itemsData.Clear();
-
-        var blackboxes = BlackboxManager.Instance.blackboxes;
-
-        foreach (var blackbox in blackboxes)
-        {
-          items.Add(blackbox.Name);
-          itemsData.Add(blackbox.Id);
-        }
       }
     }
   }

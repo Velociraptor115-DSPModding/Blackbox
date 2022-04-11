@@ -6,6 +6,7 @@ using BepInEx;
 using BepInEx.Logging;
 using HarmonyLib;
 using UnityEngine;
+using DysonSphereProgram.Modding.Blackbox.UI.Builder;
 
 namespace DysonSphereProgram.Modding.Blackbox.UI
 {
@@ -28,15 +29,15 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
       Plugin.Path = Info.Location;
       _harmony = new Harmony(GUID);
       _harmony.PatchAll(typeof(BlackboxUIPatch));
-      if (UIRoot.instance?.uiGame?.created ?? false)
-        BlackboxUIGateway.Create();
+      UIBuilderPlugin.Create(GUID, BlackboxUIGateway.CreateUI);
       Logger.LogInfo("Blackbox-UI Awake() called");
     }
 
     private void OnDestroy()
     {
       Logger.LogInfo("Blackbox-UI OnDestroy() called");
-      BlackboxUIGateway.Destroy();
+      BlackboxUIGateway.DestroyUI();
+      UIBuilderPlugin.Destroy();
       _harmony?.UnpatchSelf();
       Plugin.Log = null;
       Plugin.Path = null;

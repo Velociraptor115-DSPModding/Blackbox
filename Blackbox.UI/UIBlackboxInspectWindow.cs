@@ -1,19 +1,21 @@
-﻿using UnityEngine;
+using DysonSphereProgram.Modding.Blackbox.UI.Builder;
+using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.Events;
 
 namespace DysonSphereProgram.Modding.Blackbox.UI
 {
-  public class UIBlackboxInspectWindow: ManualBehaviour
+  using static UIBuilderDSL;
+  
+  public class UIBlackboxInspectWindow: UIModWindowBase
   {
     private Blackbox blackbox;
 
-    private Button closeButton;
-    private Text titleText;
+    private Localizer titleLocalizer;
     private Text statusText;
     private Text pauseResumeBtnText;
 
-    private UIButton pauseResumeBtn;
+    private Button pauseResumeBtn;
     private Image progressImg;
     private GameObject progressIndicator;
 
@@ -24,26 +26,18 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
 
     public override void _OnCreate()
     {
-      closeButton =
-        gameObject
-          .SelectDescendant("panel-bg", "btn-box", "close-btn")
-          ?.GetComponent<Button>()
-          ;
-
-      closeButton?.onClick.AddListener(_Close);
-
-      titleText =
+      titleLocalizer =
         gameObject
           .SelectDescendant("panel-bg", "title-text")
-          ?.GetComponent<Text>()
+          ?.GetComponent<Localizer>()
           ;
 
-      if (titleText != null)
-        titleText.text = "<Select Blackbox to Inspect>";
+      if (titleLocalizer != null)
+        titleLocalizer.stringKey = "<Select Blackbox to Inspect>";
 
       progressIndicator =
         gameObject
-          .SelectChild("produce")
+          .SelectChild("progress-circle")
           ;
 
       progressIndicator.SetActive(false);
@@ -66,7 +60,7 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
       pauseResumeBtn =
         gameObject
           .SelectDescendant("pause-resume-btn")
-          .GetComponent<UIButton>()
+          .GetComponent<Button>()
           ;
 
       pauseResumeBtnText =
@@ -79,8 +73,7 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
 
     public override void _OnDestroy()
     {
-      closeButton = null;
-      titleText = null;
+      titleLocalizer = null;
       progressImg = null;
       progressIndicator = null;
       statusText = null;
@@ -94,12 +87,12 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
       if (blackbox == null)
         return false;
 
-      if (titleText != null)
-        titleText.text = blackbox.Name;
+      if (titleLocalizer != null)
+        titleLocalizer.stringKey = blackbox.Name;
 
       progressIndicator.SetActive(true);
 
-      pauseResumeBtn.onClick += OnPauseResumeBtnClick;
+      pauseResumeBtn.onClick.AddListener(OnPauseResumeBtnClick);
 
       Debug.Log("Setting produce to Active");
 
@@ -108,10 +101,10 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
 
     public override void _OnFree()
     {
-      pauseResumeBtn.onClick -= OnPauseResumeBtnClick;
+      pauseResumeBtn.onClick.RemoveListener(OnPauseResumeBtnClick);
       progressIndicator.SetActive(false);
       blackbox = null;
-      titleText.text = "<Select Blackbox to Inspect>";
+      titleLocalizer.stringKey = "<Select Blackbox to Inspect>";
     }
 
     public override void _OnUpdate()
@@ -153,6 +146,7 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
       if (blackbox.Simulation == null)
       {
         pauseResumeBtn.gameObject.SetActive(false);
+        progressImg.fillAmount = 0;
       }
       else
       {
@@ -166,7 +160,7 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
       }
     }
 
-    private void OnPauseResumeBtnClick(int _)
+    private void OnPauseResumeBtnClick()
     {
       if (blackbox == null)
         return;
@@ -183,14 +177,6 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
 
   public class ModdedUIBlackboxInspectWindow : IModdedUI<UIBlackboxInspectWindow>
   {
-    const string uiWindowsPath = "UI Root/Overlay Canvas/In Game/Windows";
-    const string uiAssemblerWindowName = "Assembler Window";
-    const string uiAssemblerWindowPath = uiWindowsPath + "/" + uiAssemblerWindowName;
-    const string uiBlueprintBrowserWindowName = "Blueprint Browser";
-    const string uiBlueprintBrowserWindowPath = uiWindowsPath + "/" + uiBlueprintBrowserWindowName;
-    const string uiBlackboxInspectWindowName = "Blackbox Inspect Window";
-    const string uiBlackboxInspectWindowPath = uiWindowsPath + "/" + uiBlackboxInspectWindowName;
-
     private GameObject gameObject;
     private UIBlackboxInspectWindow uiBlackboxInspectWindow;
 
@@ -199,145 +185,107 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
 
     object IModdedUI.Component => uiBlackboxInspectWindow;
 
-    public void CreateObjectsAndPrefabs()
+    public void CreateUI()
     {
-      var uiGame = UIRoot.instance.uiGame;
-      var assemblerWindow = uiGame.assemblerWindow.gameObject;
-      gameObject = Object.Instantiate(assemblerWindow, assemblerWindow.transform.parent);
-      gameObject.name = uiBlackboxInspectWindowName;
-
-
-      var assemblerStateText =
-        assemblerWindow
-          .SelectDescendant("state", "state-text")
+      var windowsObj = UIRoot.instance.uiGame.assemblerWindow.transform.parent;
+      
+      var inspectWindowObj =
+        Create.FancyWindow("Blackbox Inspect Window")
+          .ChildOf(windowsObj)
+          .WithAnchor(Anchor.TopLeft)
+          .OfSize(580, 250)
+          .At(100, -100)
+          .WithScrollCapture()
+          .WithTitle("<Select Blackbox To Inspect>")
           ;
 
-      var blackboxStatusLabel = Object.Instantiate(assemblerStateText, gameObject.transform);
-      blackboxStatusLabel.name = "status-label";
+      gameObject = inspectWindowObj.uiElement;
 
-      {
-        var rectTransform =
-          blackboxStatusLabel
-            .GetComponent<RectTransform>()
-            ;
-
-        rectTransform.anchorMin = new Vector2(0, 1);
-        rectTransform.anchorMax = new Vector2(0, 1);
-        rectTransform.pivot = new Vector2(0, 1);
-        rectTransform.anchoredPosition = new Vector2(40, -50);
-
-        var text =
-          blackboxStatusLabel
-            .GetComponent<Text>()
-            ;
-
-        text.alignment = TextAnchor.UpperLeft;
-        text.text = "Status";
-      }
-
-      gameObject
-        .DestroyChild("player-storage")
-        .DestroyChild("state")
-        .DestroyChild("offwork")
-        .DestroyComponent<UIAssemblerWindow>()
-        ;
-
-      gameObject
-        .SelectChild("panel-bg")
-        .DestroyChild("deco")
-        .DestroyChild("deco (1)")
-        .DestroyChild("deco (2)")
-        ;
-
-      gameObject
-        .SelectChild("produce")
-        .DestroyChild("speed")
-        .DestroyChild("serving-box")
-        ;
-
-      gameObject
-        .SelectChild("produce")
-        .SelectChild("circle-back")
-        .DestroyChild("product-icon")
-        .DestroyChild("cnt-text")
-        .DestroyChild("circle-fg-1")
-        .DestroyChild("product-icon-1")
-        .DestroyChild("cnt-text-1")
-        .DestroyChild("stop-btn")
-        ;
-
-      {
-        var rectTransform =
+      Select.Text(
           gameObject
-            .SelectChild("produce")
-            .GetComponent<RectTransform>()
-            ;
+            .SelectDescendant("panel-bg", "title-text")
+            .GetComponent<Text>()
+        )
+        .WithFontSize(16);
 
-        rectTransform.anchorMin = new Vector2(0, 0.5f);
-        rectTransform.anchorMax = new Vector2(0, 0.5f);
-        rectTransform.pivot = new Vector2(0, 0.5f);
-        rectTransform.anchoredPosition = new Vector2(20, 0);
-      }
+      var statusLabelText =
+        Create.Text("status-label")
+          .ChildOf(inspectWindowObj)
+          .WithAnchor(Anchor.TopLeft)
+          .At(40, -50)
+          .OfSize(128, 20)
+          .WithFont(UIBuilder.fontSAIRASB)
+          .WithFontSize(14)
+          .WithMaterial(UIBuilder.materialWidgetTextAlpha5x)
+          .WithColor(new Color(0.5882f, 0.5882f, 0.5882f, 1))
+          .WithAlignment(TextAnchor.UpperLeft)
+          .WithText("Status")
+          ;
+      
+      var progressCircle =
+        Create.UIElement("progress-circle")
+          .ChildOf(inspectWindowObj)
+          .WithAnchor(Anchor.Left)
+          .At(40, 0)
+          ;
+      
+      var circleBack = 
+        Create.UIElement("circle-back")
+          .ChildOf(progressCircle)
+          .WithAnchor(Anchor.Left)
+          .At(0, 0)
+          .OfSize(64, 64)
+          .WithComponent((Image x) =>
+          {
+            x.sprite = UIBuilder.spriteRound64Slice;
+            x.color = Color.black.AlphaMultiplied(0.4f);
+            x.type = Image.Type.Sliced;
+          })
+          ;
+      
+      var circleBorder =
+        Create.UIElement("border")
+          .ChildOf(circleBack)
+          .WithAnchor(Anchor.Stretch)
+          .At(0, 0)
+          .WithComponent((Image x) =>
+          {
+            x.sprite = UIBuilder.spriteRound64BorderSlice;
+            x.color = new Color(0.6557f, 0.9145f, 1f, 0.1569f);
+            x.type = Image.Type.Sliced;
+          });
+      
+      var circleFg =
+        Create.UIElement("circle-fg")
+          .ChildOf(circleBack)
+          .WithAnchor(Anchor.Stretch)
+          .At(0, 0)
+          .OfSize(-4, -4)
+          .WithComponent((Image x) =>
+          {
+            x.sprite = UIBuilder.spriteCircleThin;
+            x.color = new Color(0.9906f, 0.5897f, 0.3691f, 0.7059f);
+            x.material = UIBuilder.materialWidgetAlpha5x;
+            x.type = Image.Type.Filled;
+            x.fillMethod = Image.FillMethod.Radial360;
+            x.fillOrigin = 2;
+            x.fillAmount = 0.5f;
+          });
+      
+      var pauseResumeBtn =
+        Create.Button("pause-resume-btn", "Pause / Resume")
+          .ChildOf(inspectWindowObj)
+          .WithAnchor(Anchor.BottomLeft)
+          .At(40, 40)
+          .OfSize(90, 30)
+          .WithVisuals((IProperties<Image>) UIBuilder.buttonImgProperties)
+          .WithFontSize(14)
+          ;
 
-      var blueprintBrowserWindow = uiGame.blueprintBrowser.gameObject;
-
-      var saveChangesButton =
-        blueprintBrowserWindow
-        .SelectDescendant("inspector-group", "save-changes-button")
-        ;
-
-      var pauseResumeBtn = Object.Instantiate(saveChangesButton, gameObject.transform);
-      pauseResumeBtn.name = "pause-resume-btn";
-
-      pauseResumeBtn
-        .SelectChild("text")
-        .DestroyComponent<Localizer>()
-        .GetComponent<Text>()
-        .text = "Pause / Resume"
-        ;
-
-      {
-        var uiButton = pauseResumeBtn.GetComponent<UIButton>();
-        uiButton.tip = null;
-        uiButton.tips = default(UIButton.TipSettings);
-
-        var rectTransform =
-          pauseResumeBtn
-            .GetComponent<RectTransform>()
-            ;
-
-        rectTransform.anchorMin = new Vector2(0, 0);
-        rectTransform.anchorMax = new Vector2(0, 0);
-        rectTransform.pivot = new Vector2(0, 0);
-        rectTransform.anchoredPosition = new Vector2(40, 40);
-      }
-
-      //var newGO = new GameObject("test-texture-load", typeof(RectTransform), typeof(Image));
-      //newGO.transform.parent = gameObject.transform;
-      //{
-      //  var rectTransform = newGO.GetComponent<RectTransform>();
-      //  rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
-      //  rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
-      //  rectTransform.pivot = new Vector2(0.5f, 0.5f);
-      //  rectTransform.anchoredPosition3D = Vector3.zero;
-      //  rectTransform.sizeDelta = Vector2.one;
-      //}
-      //{
-      //  var image = newGO.GetComponent<Image>();
-      //  var newTex = new Texture2D(1, 1);
-      //  var data = System.IO.File.ReadAllBytes(@"D:\Raptor\Downloads\testbb2.png");
-      //  newTex.LoadImage(data);
-      //  image.material.mainTexture = newTex;
-      //}
+      inspectWindowObj.InitializeComponent(out uiBlackboxInspectWindow);
     }
 
-    public void CreateComponents()
-    {
-      uiBlackboxInspectWindow = gameObject.GetOrCreateComponent<UIBlackboxInspectWindow>();
-      uiBlackboxInspectWindow._Create();
-    }
-
-    public void Destroy()
+    public void DestroyUI()
     {
       if (uiBlackboxInspectWindow != null)
       {
