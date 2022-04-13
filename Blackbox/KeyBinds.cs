@@ -4,47 +4,44 @@ using CommonAPI.Systems;
 
 namespace DysonSphereProgram.Modding.Blackbox
 {
+  public record KeyBind(string Id, string Description, CombineKey DefaultBinding, int ConflictGroup)
+  {
+    public bool IsActive => CustomKeyBindSystem.GetKeyBind(Id)?.keyValue ?? false;
+  }
+
   public static class KeyBinds
   {
-    public const string CreateBlackbox = nameof(CreateBlackbox);
+    public static readonly KeyBind CreateBlackbox = new(
+        nameof(CreateBlackbox)
+      , "Create Blackbox from selection"
+      , new CombineKey((int)KeyCode.N, CombineKey.CTRL_COMB, ECombineKeyAction.OnceClick, false)
+      , 4095
+    );
 
-    private static List<string> keyBinds = new List<string>
+    private static readonly KeyBind[] keyBinds = new KeyBind[]
     {
-      CreateBlackbox,
+        CreateBlackbox
     };
-
-    private static List<CombineKey> defaultBindings = new List<CombineKey>
-    {
-      new CombineKey((int)KeyCode.N, CombineKey.CTRL_COMB, ECombineKeyAction.OnceClick, false),
-    };
-
-    private static List<string> keyBindDescriptions = new List<string>
-    {
-      "Create Blackbox from selection",
-    };
-
-    private static int keyBindId(string keyBind) => keyBinds.IndexOf(keyBind) + 250;
 
     public static void RegisterKeyBinds()
     {
       foreach (var keyBind in keyBinds)
       {
-        if (!CustomKeyBindSystem.HasKeyBind(keyBind))
+        if (!CustomKeyBindSystem.HasKeyBind(keyBind.Id))
         {
           var builtinKey = new BuiltinKey
           {
-            name = keyBind,
-            id = keyBindId(keyBind),
-            key = defaultBindings[keyBinds.IndexOf(keyBind)],
+            name = keyBind.Id,
+            id = 0,
+            key = keyBind.DefaultBinding,
             canOverride = true,
-            conflictGroup = 4095 // I have no idea what this is, but to be on the safer side
-                                 // I'm going to make it conflict with everything that isn't a mouse key
+            conflictGroup = keyBind.ConflictGroup
           };
           if (builtinKey.key.action == ECombineKeyAction.LongPress)
             CustomKeyBindSystem.RegisterKeyBind<HoldKeyBind>(builtinKey);
           else
             CustomKeyBindSystem.RegisterKeyBind<PressKeyBind>(builtinKey);
-          ProtoRegistry.RegisterString("KEY" + keyBind, keyBindDescriptions[keyBinds.IndexOf(keyBind)]);
+          ProtoRegistry.RegisterString("KEY" + keyBind.Id, keyBind.Description);
         }
       }
     }

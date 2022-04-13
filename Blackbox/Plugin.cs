@@ -67,7 +67,7 @@ namespace DysonSphereProgram.Modding.Blackbox
   {
     static void Postfix()
     {
-      if (CustomKeyBindSystem.GetKeyBind(KeyBinds.CreateBlackbox).keyValue)
+      if (KeyBinds.CreateBlackbox.IsActive)
       {
         var player = GameMain.mainPlayer;
         if (player == null)
@@ -99,4 +99,9 @@ namespace DysonSphereProgram.Modding.Blackbox
       BlackboxManager.Instance.PreserveVanillaSaveAfter();
     }
   }
+}
+
+namespace System.Runtime.CompilerServices
+{
+  public record IsExternalInit;
 }
