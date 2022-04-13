@@ -75,7 +75,7 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
       BlackboxUIGateway.Update();
 
       var uiBlackboxWindowManager = BlackboxUIGateway.BlackboxManagerWindow?.Component;
-      if (uiBlackboxWindowManager != null && (Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl)) && Input.GetKeyDown(KeyCode.M))
+      if (uiBlackboxWindowManager != null && KeyBinds.BlackboxManagerWindow.IsActive)
       {
         if (uiBlackboxWindowManager.active)
           uiBlackboxWindowManager._Close();

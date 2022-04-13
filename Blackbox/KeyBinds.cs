@@ -18,9 +18,17 @@ namespace DysonSphereProgram.Modding.Blackbox
       , 4095
     );
 
+    public static readonly KeyBind BlackboxManagerWindow = new(
+        nameof(BlackboxManagerWindow)
+      , "Blackbox Manager Window"
+      , new CombineKey((int)KeyCode.M, CombineKey.CTRL_COMB, ECombineKeyAction.OnceClick, false)
+      , 4095
+    );
+
     private static readonly KeyBind[] keyBinds = new KeyBind[]
     {
         CreateBlackbox
+      , BlackboxManagerWindow
     };
 
     public static void RegisterKeyBinds()
