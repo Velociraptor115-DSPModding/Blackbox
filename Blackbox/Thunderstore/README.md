@@ -29,6 +29,10 @@ You are encouraged to contact me on the DSP Discord to provide feedback
 
 ## Changelog
 
+### [v0.0.6](https://dsp.thunderstore.io/package/Raptor/Blackbox/0.0.6/)
+* Fix bug introduced by consolidating power consumer logging in previous update
+* Add keybind for Blackbox Manager Window
+
 ### [v0.0.5](https://dsp.thunderstore.io/package/Raptor/Blackbox/0.0.5/)
 * Fix support for spraycoaters, pilers and traffic monitors
 * Consolidate power consumer logging to reduce memory required for benchmarking

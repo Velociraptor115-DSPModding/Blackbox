@@ -17,7 +17,7 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
   {
     public const string GUID = "dev.raptor.dsp.Blackbox-UI";
     public const string NAME = "Blackbox-UI";
-    public const string VERSION = "0.0.5";
+    public const string VERSION = "0.0.6";
 
     private Harmony _harmony;
     internal static ManualLogSource Log;
