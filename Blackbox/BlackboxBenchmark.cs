@@ -545,6 +545,8 @@ namespace DysonSphereProgram.Modding.Blackbox
 
     private void ClearItemStats()
     {
+      var pcSpan = profilingTsData.LevelEntryOffset(0, profilingTick).Slice(pcOffset, pcSize);
+      pcSpan.Clear();
       var factoryStatsSpan = profilingTsData.LevelEntryOffset(0, profilingTick).Slice(factoryStatsOffset, factoryStatsSize);
       factoryStatsSpan.Clear();
       var stationStatsSpan = profilingTsData.LevelEntryOffset(0, profilingTick).Slice(stationStatsOffset, stationStatsSize);
