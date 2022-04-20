@@ -244,6 +244,7 @@ namespace DysonSphereProgram.Modding.Blackbox
           }
         }
 
+        benchmark.AdjustStationStorageCount();
         benchmark.LogStationBefore();
 
         for (int i = 0; i < benchmark.labIds.Count; i++)
@@ -262,11 +263,6 @@ namespace DysonSphereProgram.Modding.Blackbox
         {
           var stationId = benchmark.stationIds[i];
           var station = factory.transport.stationPool[stationId];
-
-          for (int j = 0; j < station.storage.Length; j++)
-          {
-            station.storage[j].count = station.storage[j].max / 2;
-          }
           station.UpdateNeeds();
           factory.entityNeeds[station.entityId] = station.needs;
         }

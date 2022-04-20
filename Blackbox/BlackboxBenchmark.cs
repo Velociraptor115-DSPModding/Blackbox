@@ -809,6 +809,16 @@ namespace DysonSphereProgram.Modding.Blackbox
     public override bool ShouldInterceptSpraycoater(CargoTraffic cargoTraffic, int spraycoaterId)
       => cargoTraffic == simulationFactory.cargoTraffic && spraycoaterIds.Contains(spraycoaterId);
 
+    public override void AdjustStationStorageCount()
+    {
+      for (int i = 0; i < stationIds.Count; i++)
+      {
+        ref readonly var station = ref simulationFactory.transport.stationPool[stationIds[i]];
+        for (int j = 0; j < station.storage.Length; j++)
+          station.storage[j].count = station.storage[j].max / 2;
+      }
+    }
+
     public override void LogStationBefore()
     {
       var profilingData = profilingTsData.LevelEntryOffset(0, profilingTick).Slice(stationOffset, stationSize);

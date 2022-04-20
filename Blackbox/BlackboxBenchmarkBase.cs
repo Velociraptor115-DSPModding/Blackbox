@@ -28,6 +28,8 @@ namespace DysonSphereProgram.Modding.Blackbox
 
     public virtual void LogPowerConsumer() { }
 
+    public virtual void AdjustStationStorageCount() { }
+
     public virtual void LogStationBefore() { }
 
     public virtual void LogStationAfter() { }
@@ -96,6 +98,7 @@ namespace DysonSphereProgram.Modding.Blackbox
 
         if (benchmarkFactory == factory)
         {
+          benchmark.AdjustStationStorageCount();
           benchmark.LogStationBefore();
           //Debug.Log("Noting production and consumption");
         }
