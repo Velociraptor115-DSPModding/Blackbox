@@ -279,10 +279,10 @@ namespace DysonSphereProgram.Modding.Blackbox
 
       this.totalStats = new ProduceConsumePair[itemIds.Count];
 
-      var distinctTimeSpends = tmp_assemblerTimeSpends.Distinct().DefaultIfEmpty(60);
-      this.timeSpendGCD = Utils.GCD(distinctTimeSpends);
-      this.timeSpendLCM = Utils.LCM(distinctTimeSpends) * 4;
-      this.profilingTickCount = timeSpendLCM * ((analysisVerificationCount * 2 * /* to account for sorter stacking */ 6) + 2);
+      var distinctTimeSpends = tmp_assemblerTimeSpends.Distinct().DefaultIfEmpty(60).ToList();
+      this.timeSpendGCD = Math.Max(60, Utils.GCD(distinctTimeSpends));
+      this.timeSpendLCM = (int)Utils.LCM(Utils.LCM(distinctTimeSpends) * 4, timeSpendGCD);
+      this.profilingTickCount = timeSpendLCM * analysisVerificationCount;
       this.profilingEntryCount = profilingTickCount / timeSpendGCD;
 
       var mlg = new MultiLevelGranularity();
@@ -658,7 +658,7 @@ namespace DysonSphereProgram.Modding.Blackbox
           blackbox.NotifyBlackboxed(this.analysedRecipe);
         }
       }
-      if (profilingTick >= this.profilingTickCount * 40)
+      if (profilingTick >= this.profilingTickCount * 3)
       {
         profilingTick = 0;
         Plugin.Log.LogDebug($"Analysis Failed");
@@ -854,7 +854,7 @@ namespace DysonSphereProgram.Modding.Blackbox
       }
     }
 
-    public override float Progress => this.profilingTick / (float)(profilingTickCount * 40);
-    public override string ProgressText => $"{profilingTick} / {profilingTickCount * 40}";
+    public override float Progress => this.profilingTick / (float)(profilingTickCount * 3);
+    public override string ProgressText => $"{profilingTick} / {profilingTickCount * 3}";
   }
 }
