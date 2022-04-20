@@ -280,11 +280,6 @@ namespace DysonSphereProgram.Modding.Blackbox
           var inserterId = benchmark.inserterIds[i];
           ref var inserter = ref factory.factorySystem.inserterPool[inserterId];
           inserter.InternalUpdateNoAnim(factory, factory.entityNeeds, 1);
-          inserter.idleTick = 0;
-          if (benchmark.adaptiveStacking || benchmark.forceNoStacking)
-          {
-            DoAdaptiveStacking(ref inserter, factory, benchmark.forceNoStacking);
-          }
         }
 
         // TODO: Cargo game tick

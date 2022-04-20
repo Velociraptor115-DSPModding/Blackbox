@@ -3,81 +3,12 @@ using System.IO;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
-using UnityEngine;
-using HarmonyLib;
-using System.Reflection.Emit;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace DysonSphereProgram.Modding.Blackbox
 {
-  public class AnalysisData
-  {
-    public const int fo_storage0delta = 0;
-    public const int fo_storage1delta = 1;
-    public const int fo_storage2delta = 2;
-    public const int fo_storage3delta = 3;
-    public const int fo_storage4delta = 4;
-    public const int size_station = 5;
-
-    public const int fo_served0 = 0;
-    public const int fo_served1 = 1;
-    public const int fo_served2 = 2;
-    public const int fo_served3 = 3;
-    public const int fo_served4 = 4;
-    public const int fo_served5 = 5;
-    public const int fo_produced0 = 6;
-    public const int fo_produced1 = 7;
-    public const int size_assembler = 8;
-
-    //public const int fo_itemId = 0;
-    //public const int fo_stackCount = 1;
-    //public const int fo_stage = 2;
-    //public const int size_inserter = 3;
-    public const int fo_stackCount = 0;
-    public const int fo_stage = 1;
-    public const int fo_idleTick = 2;
-    public const int size_inserter = 3;
-
-    public const int fo_requiredEnergy_low = 0;
-    public const int fo_requiredEnergy_high = 1;
-    public const int size_powerConsumer = 2;
-  }
-
-  public struct AnalysisStationInfo
-  {
-    int storage0delta;
-    int storage1delta;
-    int storage2delta;
-    int storage3delta;
-    int storage4delta;
-  }
-
-  public struct AnalysisAssemblerInfo
-  {
-    int served0;
-    int served1;
-    int served2;
-    int served3;
-    int served4;
-    int served5;
-    int produced0;
-    int produced1;
-  }
-
-  public struct AnalysisInserterInfo
-  {
-    //int itemId;
-    int stackCount;
-    EInserterStage stage;
-  }
-
-  public struct AnalysisPowerConsumerInfo
-  {
-    long requiredEnergy;
-  }
-
   [StructLayout(LayoutKind.Sequential)]
   public struct ProduceConsumePair
   {
@@ -127,9 +58,7 @@ namespace DysonSphereProgram.Modding.Blackbox
     const int TicksPerSecond = 60;
     const int TicksPerMinute = TicksPerSecond * 60;
 
-    const bool profileInserters = false;
     public static bool logProfiledData = false;
-    const bool analyzeInserterStackEffect = false;
     public static bool forceNoStackingConfig = false;
     public static bool adaptiveStackingConfig = false;
     public bool adaptiveStacking;
@@ -267,7 +196,7 @@ namespace DysonSphereProgram.Modding.Blackbox
         }
       }
 
-      this.pcSize = AnalysisData.size_powerConsumer * 1; // pcIds.Count;
+      this.pcSize = (sizeof(long) / sizeof(int)) * 1;
       this.stationSize = 0;
       for (int i = 0; i < stationIds.Count; i++)
       {
@@ -460,8 +389,6 @@ namespace DysonSphereProgram.Modding.Blackbox
       continuousLogger.Write($"Phase,");
       continuousLogger.Write($"Tick,");
       continuousLogger.Write($"PC,");
-      // for (int i = 0; i < pcIds.Count; i++)
-      //   continuousLogger.Write($"PC{i},");
 
       for (int i = 0; i < stationSize; i++)
       {
@@ -506,14 +433,6 @@ namespace DysonSphereProgram.Modding.Blackbox
       continuousLogger.Write(',');
 
       var pcData = MemoryMarshal.Cast<int, long>(alternativeEntry.Slice(pcOffset, pcSize));
-      // for (int i = 0; i < pcIds.Count; i++)
-      // {
-      //   continuousLogger.Write(pcData[i]);
-      //   continuousLogger.Write(',');
-      // }
-      // long pcDataTotal = 0;
-      // for (int i = 0; i < pcIds.Count; i++)
-      //   pcDataTotal += pcData[i];
       long pcDataTotal = pcData[0];
       continuousLogger.Write(pcDataTotal);
       continuousLogger.Write(',');
@@ -868,21 +787,9 @@ namespace DysonSphereProgram.Modding.Blackbox
         var span1 = profilingTsData.Level(1).Entry((i1 + circularOffset) % profilingEntryCount);
         var span2 = profilingTsData.Level(1).Entry((i2 + circularOffset) % profilingEntryCount);
 
-        // for (int i = this.statsDiffOffset; i < this.statsDiffOffset + this.statsDiffSize; i++)
-        //   if (span1[i] != span2[i])
-        //     return false;
-
         for (int i = this.factoryStatsOffset; i < this.factoryStatsOffset + this.factoryStatsSize; i++)
           if (span1[i] != span2[i])
             return false;
-        
-        // for (int i = this.stationStatsOffset; i < this.stationStatsOffset + this.stationStatsSize; i++)
-        //   if (span1[i] != span2[i])
-        //     return false;
-        //
-        // for (int i = this.stationOffset; i < this.stationOffset + this.stationSize; i++)
-        //   if (span1[i] != span2[i])
-        //     return false;
 
         return true;
       });
@@ -904,21 +811,9 @@ namespace DysonSphereProgram.Modding.Blackbox
           summarizer.Summarize(span2, span2Summary);
         }
 
-        // for (int i = this.statsDiffOffset; i < this.statsDiffOffset + this.statsDiffSize; i++)
-        //   if (span1Summary[i] != span2Summary[i])
-        //     return false;
-
         for (int i = this.factoryStatsOffset; i < this.factoryStatsOffset + this.factoryStatsSize; i++)
           if (span1Summary[i] != span2Summary[i])
             return false;
-        
-        // for (int i = this.stationStatsOffset; i < this.stationStatsOffset + this.stationStatsSize; i++)
-        //   if (span1Summary[i] != span2Summary[i])
-        //     return false;
-        //
-        // for (int i = this.stationOffset; i < this.stationOffset + this.stationSize; i++)
-        //   if (span1Summary[i] != span2Summary[i])
-        //     return false;
 
         return true;
       });
@@ -1171,122 +1066,6 @@ namespace DysonSphereProgram.Modding.Blackbox
       var tmp_consumes = new Dictionary<int, int>();
 
       var factoryStatsSpan = MemoryMarshal.Cast<int, ProduceConsumePair>(averagingSpan.Slice(factoryStatsOffset, factoryStatsSize));
-
-      for (int i = 0; i < itemIds.Count; i++)
-      {
-        if (factoryStatsSpan[i].Produced > 0)
-          tmp_produces[itemIds[i]] = factoryStatsSpan[i].Produced;
-        if (factoryStatsSpan[i].Consumed > 0)
-          tmp_consumes[itemIds[i]] = factoryStatsSpan[i].Consumed;
-      }
-
-      Plugin.Log.LogDebug($"Idle Energy per cycle: {idleEnergyPerCycle}");
-      Plugin.Log.LogDebug($"Working Energy per cycle: {workingEnergyPerCycle}");
-      Plugin.Log.LogDebug($"Idle Power: {(idleEnergyPerCycle / this.observedCycleLength) * TicksPerSecond}");
-      Plugin.Log.LogDebug($"Working Power: {(workingEnergyPerCycle / this.observedCycleLength) * TicksPerSecond}");
-
-      Plugin.Log.LogDebug("Consumed");
-      foreach (var item in tmp_consumes)
-      {
-        var itemName = LDB.ItemName(item.Key);
-        Plugin.Log.LogDebug($"  {item.Value} {itemName}");
-      }
-
-      Plugin.Log.LogDebug("Produced");
-      foreach (var item in tmp_produces)
-      {
-        var itemName = LDB.ItemName(item.Key);
-        Plugin.Log.LogDebug($"  {item.Value} {itemName}");
-      }
-
-      Plugin.Log.LogDebug("Inputs");
-      foreach (var stationIdx in tmp_stationStorageExit)
-      {
-        Plugin.Log.LogDebug($"  Station #{stationIdx.Key}:");
-        foreach (var itemId in stationIdx.Value)
-        {
-          var itemName = LDB.ItemName(itemId.Key);
-          Plugin.Log.LogDebug($"    {itemId.Value} {itemName}");
-        }
-      }
-
-      Plugin.Log.LogDebug("Outputs");
-      foreach (var stationIdx in tmp_stationStorageEnter)
-      {
-        Plugin.Log.LogDebug($"  Station #{stationIdx.Key}:");
-        foreach (var itemId in stationIdx.Value)
-        {
-          var itemName = LDB.ItemName(itemId.Key);
-          Plugin.Log.LogDebug($"    {itemId.Value} {itemName}");
-        }
-      }
-
-      Plugin.Log.LogDebug($"Time (in ticks): {this.observedCycleLength}");
-      Plugin.Log.LogDebug($"Time (in seconds): {this.observedCycleLength / (float)TicksPerSecond}");
-
-      this.analysedRecipe = new BlackboxRecipe()
-      {
-        idleEnergyPerTick = idleEnergyPerTick,
-        workingEnergyPerTick = workingEnergyPerCycle / this.observedCycleLength,
-        timeSpend = this.observedCycleLength,
-        produces = tmp_produces,
-        consumes = tmp_consumes,
-        inputs = tmp_stationStorageExit,
-        outputs = tmp_stationStorageEnter
-      };
-    }
-
-    void GenerateRecipe(int endIndex, int circularOffset, int cycleLength)
-    {
-      long idleEnergyPerTick = 0;
-      for (int i = 0; i < pcIds.Count; i++)
-        idleEnergyPerTick += simulationFactory.powerSystem.consumerPool[pcIds[i]].idleEnergyPerTick;
-
-      long idleEnergyPerCycle = idleEnergyPerTick * this.observedCycleLength;
-
-      long workingEnergyPerCycle = 0;
-
-      var summarizer = new BlackboxBenchmarkSummarizer() { analysis = this };
-
-      int[] dataPerCycle = new int[perTickProfilingSize];
-      var dataPerCycleSpan = new Span<int>(dataPerCycle);
-      summarizer.Initialize(dataPerCycleSpan);
-
-      for (int entryIdx = endIndex; entryIdx > endIndex - cycleLength; entryIdx--)
-      {
-        var entry = profilingTsData.Level(1).Entry((entryIdx + circularOffset) % profilingEntryCount);
-        summarizer.Summarize(entry, dataPerCycleSpan);
-      }
-
-      var pcData = MemoryMarshal.Cast<int, long>(dataPerCycleSpan.Slice(pcOffset, pcSize));
-      foreach (var pc in pcData)
-        workingEnergyPerCycle += pc;
-
-      var tmp_stationStorageExit = new Dictionary<int, Dictionary<int, int>>();
-      var tmp_stationStorageEnter = new Dictionary<int, Dictionary<int, int>>();
-      var stationData = dataPerCycleSpan.Slice(stationOffset, stationSize);
-      for (int i = 0; i < stationSize; i++)
-      {
-        var stationIdx = stationStorages[i].stationIdx;
-        var itemId = stationStorages[i].itemId;
-        if (stationData[i] > 0)
-        {
-          if (!tmp_stationStorageExit.ContainsKey(stationIdx))
-            tmp_stationStorageExit[stationIdx] = new Dictionary<int, int>();
-          tmp_stationStorageExit[stationIdx][itemId] = stationData[i];
-        }
-        else if (stationData[i] < 0)
-        {
-          if (!tmp_stationStorageEnter.ContainsKey(stationIdx))
-            tmp_stationStorageEnter[stationIdx] = new Dictionary<int, int>();
-          tmp_stationStorageEnter[stationIdx][itemId] = -stationData[i];
-        }
-      }
-
-      var tmp_produces = new Dictionary<int, int>();
-      var tmp_consumes = new Dictionary<int, int>();
-
-      var factoryStatsSpan = MemoryMarshal.Cast<int, ProduceConsumePair>(dataPerCycleSpan.Slice(factoryStatsOffset, factoryStatsSize));
 
       for (int i = 0; i < itemIds.Count; i++)
       {
