@@ -805,6 +805,9 @@ namespace DysonSphereProgram.Modding.Blackbox
 
     public override bool ShouldInterceptLab(FactorySystem factorySystem, int labId)
       => factorySystem == simulationFactory.factorySystem && labIds.Contains(labId);
+    
+    public override bool ShouldInterceptSpraycoater(CargoTraffic cargoTraffic, int spraycoaterId)
+      => cargoTraffic == simulationFactory.cargoTraffic && spraycoaterIds.Contains(spraycoaterId);
 
     public override void LogStationBefore()
     {
