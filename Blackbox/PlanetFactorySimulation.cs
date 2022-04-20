@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.IO;
@@ -85,6 +85,7 @@ namespace DysonSphereProgram.Modding.Blackbox
           newPowerSystem.netPool[i] = new PowerNetwork();
           newPowerSystem.netPool[i].Reset(i);
           newPowerSystem.netPool[i].consumerRatio = 1;
+          newPowerSystem.networkServes[i] = 1;
         }
         else
         {
@@ -204,6 +205,7 @@ namespace DysonSphereProgram.Modding.Blackbox
         benchmark.BeginGameTick();
         
         factory.factorySystem.GameTickBeforePower(0, false);
+        factory.cargoTraffic.GameTickBeforePower(0, false);
         benchmark.LogPowerConsumer();
 
         // TODO: Assembler game tick
