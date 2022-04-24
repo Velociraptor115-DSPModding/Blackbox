@@ -108,6 +108,11 @@ namespace DysonSphereProgram.Modding.Blackbox
     int observedCycleLength;
     BenchmarkPhase phase;
 
+    public static bool shouldOverrideCycleLengthConfig = false;
+    public static int overrideCycleLengthConfig = 1 * TicksPerSecond;
+    public bool shouldOverrideCycleLength;
+    public int overrideCycleLength;
+
     BlackboxRecipe analysedRecipe;
     public override BlackboxRecipe EffectiveRecipe => analysedRecipe;
 
@@ -236,6 +241,8 @@ namespace DysonSphereProgram.Modding.Blackbox
       this.analysisVerificationCount = analysisVerificationCountConfig;
       this.analysisDurationMultiplier = analysisDurationMultiplierConfig;
       this.averagingThreshold = averagingThresholdConfig;
+      this.shouldOverrideCycleLength = shouldOverrideCycleLengthConfig;
+      this.overrideCycleLength = overrideCycleLengthConfig;
 
       var distinctTimeSpends = tmp_assemblerTimeSpends.Distinct().DefaultIfEmpty(60).ToList();
       this.timeSpendGCD = Math.Max(60, Utils.GCD(distinctTimeSpends));
@@ -849,22 +856,31 @@ namespace DysonSphereProgram.Modding.Blackbox
 
         if (CycleDetection.TryDetectCycles(endIndex, 0, analysisVerificationCount, indexEquals, summarizeEquals, out int cycleLength))
         {
-          this.observedCycleLength = cycleLength * timeSpendGCD;
-          Plugin.Log.LogDebug($"Cycle Length of {this.observedCycleLength} detected");
-          profilingTick = 0;
-          ClearItemStats();
-          phase = BenchmarkPhase.Averaging;
+          var effectiveCycleLength = cycleLength * timeSpendGCD;
+          Plugin.Log.LogDebug($"Cycle Length of {effectiveCycleLength} detected");
+          MoveToAveragingPhase(effectiveCycleLength);
         }
       }
       if (profilingTick >= totalTicks)
       {
         const int seconds120 = 120 * TicksPerSecond;
-        observedCycleLength = Math.Min(timeSpendLCM, Math.Max(timeSpendMaxIndividual, seconds120));
-        Plugin.Log.LogDebug($"Cycle Length of {this.observedCycleLength} assumed");
-        profilingTick = 0;
-        ClearItemStats();
-        phase = BenchmarkPhase.Averaging;
+        var effectiveCycleLength = Math.Min(timeSpendLCM, Math.Max(timeSpendMaxIndividual, seconds120));
+        Plugin.Log.LogDebug($"Cycle Length of {effectiveCycleLength} assumed");
+        MoveToAveragingPhase(effectiveCycleLength);
       }
+    }
+    
+    void MoveToAveragingPhase(int cycleLength)
+    {
+      observedCycleLength = cycleLength;
+      if (shouldOverrideCycleLength)
+      {
+        Plugin.Log.LogDebug($"Cycle Length overriden to {overrideCycleLength}");
+        observedCycleLength = overrideCycleLength;
+      }
+      profilingTick = 0;
+      ClearItemStats();
+      phase = BenchmarkPhase.Averaging;
     }
     
     private void EndGameTick_Averaging()

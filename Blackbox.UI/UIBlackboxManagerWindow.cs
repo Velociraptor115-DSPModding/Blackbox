@@ -352,6 +352,54 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
         return new [] { slider.transform, minusBtn.transform, inputField.transform, plusBtn.transform };
       }
       
+      
+      static RectTransform[] CreateCycleLengthOverride(DataBindSourceBase<bool, bool> enabledBinding, DataBindSourceBase<int, int> binding)
+      {
+        var toggle = CreateOnOffToggle(enabledBinding);
+
+        var minusBtn =
+            Create.Button("btn-minus", UIBuilder.stringFullMinus, () => binding.Value--)
+              .WithLayoutSize(30, 30)
+              .WithVisuals((IProperties<Image>)UIBuilder.buttonImgProperties)
+              .BindInteractive(enabledBinding)
+          ;
+
+        var inputField =
+            Create.InputField("input-field")
+              .WithLayoutSize(80, 30)
+              .WithContentType(InputField.ContentType.IntegerNumber)
+              .WithFont(UIBuilder.fontSAIRAR)
+              .WithFontSize(16)
+              .Bind(binding.WithTransform(x => x.ToString(), int.Parse))
+              .BindInteractive(enabledBinding)
+          ;
+
+        var plusBtn =
+            Create.Button("btn-plus", UIBuilder.stringFullPlus, () => binding.Value++)
+              .WithLayoutSize(30, 30)
+              .WithVisuals((IProperties<Image>)UIBuilder.buttonImgProperties)
+              .BindInteractive(enabledBinding)
+          ;
+
+        return new [] { toggle.transform, minusBtn.transform, inputField.transform, plusBtn.transform };
+      }
+      
+      var analyseInBackground = new DelegateDataBindSource<bool>(
+        () => Blackbox.analyseInBackgroundConfig,
+        value => Blackbox.analyseInBackgroundConfig = value
+      );
+      CreateEntry(rootLayoutGroup, "Analyse in background thread", CreateOnOffToggle(analyseInBackground).transform);
+      
+      var shouldOverrideCycleLength = new DelegateDataBindSource<bool>(
+        () => BlackboxBenchmark.shouldOverrideCycleLengthConfig,
+        value => BlackboxBenchmark.shouldOverrideCycleLengthConfig = value
+      ); 
+      var overrideCycleLengthInSeconds = new DelegateDataBindSource<int>(
+        () => BlackboxBenchmark.overrideCycleLengthConfig / 60,
+        value => BlackboxBenchmark.overrideCycleLengthConfig = System.Math.Max(value * 60, 60)
+      );
+      CreateEntry(rootLayoutGroup, "Cycle Length Override (in seconds)", CreateCycleLengthOverride(shouldOverrideCycleLength, overrideCycleLengthInSeconds));
+      
       var autoBlackbox = new DelegateDataBindSource<bool>(
         () => BlackboxManager.Instance.autoBlackbox.isActive,
         value => BlackboxManager.Instance.autoBlackbox.isActive = value
@@ -375,13 +423,7 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
         value => BlackboxBenchmark.continuousLogging = value
       );
       CreateEntry(rootLayoutGroup, "Continuous Logging", CreateOnOffToggle(continuousLogging).transform);
-      
-      var analyseInBackground = new DelegateDataBindSource<bool>(
-        () => Blackbox.analyseInBackgroundConfig,
-        value => Blackbox.analyseInBackgroundConfig = value
-      );
-      CreateEntry(rootLayoutGroup, "Analyse in background thread", CreateOnOffToggle(analyseInBackground).transform);
-      
+
       var analysisVerificationCount = new DelegateDataBindSource<int>(
         () => BlackboxBenchmark.analysisVerificationCountConfig,
         value => BlackboxBenchmark.analysisVerificationCountConfig = value
