@@ -85,9 +85,19 @@ namespace DysonSphereProgram.Modding.Blackbox
     public int Consumed;
   }
 
+  public enum BenchmarkPhase
+  {
+    SpraySaturation,
+    SelfSpraySaturation,
+    ItemSaturation,
+    Benchmarking,
+    Averaging
+  }
+
   public record struct StationStorageData(int stationId, int stationIdx, int storageIdx, ELogisticStorage effectiveLogic, int itemId, int itemIdx)
     : IComparable<StationStorageData>
   {
+    public bool isSpray = sprayItemIds.Contains(itemId);
     public int CompareTo(StationStorageData other)
     {
       var stationIdxComparison = stationIdx.CompareTo(other.stationIdx);
@@ -95,6 +105,8 @@ namespace DysonSphereProgram.Modding.Blackbox
         return stationIdxComparison;
       return storageIdx.CompareTo(other.storageIdx);
     }
+
+    private static readonly int[] sprayItemIds = { 1141, 1142, 1143 };
   }
 
   public class BlackboxBenchmark: BlackboxBenchmarkBase
@@ -110,7 +122,7 @@ namespace DysonSphereProgram.Modding.Blackbox
     internal readonly ImmutableSortedSet<int> pilerIds;
     internal readonly ImmutableSortedSet<int> spraycoaterIds;
     internal readonly ImmutableSortedSet<int> itemIds;
-    internal ImmutableSortedSet<StationStorageData> stationStorages;
+    internal StationStorageData[] stationStorages;
 
     const int TicksPerSecond = 60;
     const int TicksPerMinute = TicksPerSecond * 60;
@@ -145,14 +157,27 @@ namespace DysonSphereProgram.Modding.Blackbox
     int perTickProfilingSize;
     int profilingTick = 0;
     int[] stabilityDetectionData;
-    int stabilizedTick = -1;
+    int stabilizedTick = 0;
+    int spraySaturationTick = 0;
 
-    const int analysisVerificationCount = 4;
+    int averagingDataSize;
+    long[] averagingDataRaw;
+    int[] averagingDataStats;
+    int averagingDataStatsIdx;
+
+    public static int analysisVerificationCountConfig = 4;
+    public static int analysisDurationMultiplierConfig = 3;
+    public static float averagingThresholdConfig = 0.0001f;
+    public int analysisVerificationCount ;
+    public int analysisDurationMultiplier;
+    public float averagingThreshold;
     int timeSpendGCD;
     int timeSpendLCM;
+    int timeSpendMaxIndividual;
     int profilingTickCount;
     int profilingEntryCount;
     int observedCycleLength;
+    BenchmarkPhase phase;
 
     BlackboxRecipe analysedRecipe;
     public override BlackboxRecipe EffectiveRecipe => analysedRecipe;
@@ -265,8 +290,8 @@ namespace DysonSphereProgram.Modding.Blackbox
           }
         }
       }
-      this.stationStorages = tmp_stationStorages.ToImmutable();
-      this.stationSize = stationStorages.Count;
+      this.stationStorages = tmp_stationStorages.ToImmutable().ToArray();
+      this.stationSize = stationStorages.Length;
       this.factoryStatsSize = itemIds.Count * 2;
       this.stationStatsSize = itemIds.Count * 2;
       this.statsDiffSize = itemIds.Count;
@@ -279,9 +304,14 @@ namespace DysonSphereProgram.Modding.Blackbox
 
       this.totalStats = new ProduceConsumePair[itemIds.Count];
 
+      this.analysisVerificationCount = analysisVerificationCountConfig;
+      this.analysisDurationMultiplier = analysisDurationMultiplierConfig;
+      this.averagingThreshold = averagingThresholdConfig;
+
       var distinctTimeSpends = tmp_assemblerTimeSpends.Distinct().DefaultIfEmpty(60).ToList();
       this.timeSpendGCD = Math.Max(60, Utils.GCD(distinctTimeSpends));
       this.timeSpendLCM = (int)Utils.LCM(Utils.LCM(distinctTimeSpends) * 4, timeSpendGCD);
+      this.timeSpendMaxIndividual = (int)Utils.LCM(distinctTimeSpends.Max(), timeSpendGCD);
       this.profilingTickCount = timeSpendLCM * analysisVerificationCount;
       this.profilingEntryCount = profilingTickCount / timeSpendGCD;
 
@@ -296,6 +326,15 @@ namespace DysonSphereProgram.Modding.Blackbox
       this.cycleDetectionData = new int[this.perTickProfilingSize * 2];
       this.stabilityDetectionData = new int[this.statsDiffSize];
       profilingTick = 0;
+      phase = spraycoaterIds.Count > 0 ? BenchmarkPhase.SpraySaturation : BenchmarkPhase.ItemSaturation;
+
+      averagingDataSize = pcSize + stationSize + factoryStatsSize;
+      averagingDataRaw = new long[averagingDataSize];
+      averagingDataStats = new int[averagingDataSize * analysisVerificationCount];
+      
+      Plugin.Log.LogDebug("Profiling Mem Requirement: " + (profilingTsData.Data.Length * sizeof(int)));
+      Plugin.Log.LogDebug("Aggregation ticks: " + timeSpendGCD);
+      Plugin.Log.LogDebug("Per-cycle Analysis ticks: " + timeSpendLCM);
 
       this.forceNoStacking = forceNoStackingConfig;
       this.adaptiveStacking = adaptiveStackingConfig;
@@ -418,6 +457,8 @@ namespace DysonSphereProgram.Modding.Blackbox
 
     private void WriteContinuousLoggingHeader()
     {
+      continuousLogger.Write($"Phase,");
+      continuousLogger.Write($"Tick,");
       continuousLogger.Write($"PC,");
       // for (int i = 0; i < pcIds.Count; i++)
       //   continuousLogger.Write($"PC{i},");
@@ -454,8 +495,17 @@ namespace DysonSphereProgram.Modding.Blackbox
     private void WriteContinuousLoggingData(int level)
     {
       var entry = profilingTsData.LevelEntryOffset(level, profilingTick);
+      var alternativeEntry =
+        phase == BenchmarkPhase.Averaging
+          ? new Span<int>(averagingDataStats, averagingDataStatsIdx % analysisVerificationCount, averagingDataSize)
+          : entry;
+      
+      continuousLogger.Write(phase.ToString());
+      continuousLogger.Write(',');
+      continuousLogger.Write(profilingTick);
+      continuousLogger.Write(',');
 
-      var pcData = MemoryMarshal.Cast<int, long>(entry.Slice(pcOffset, pcSize));
+      var pcData = MemoryMarshal.Cast<int, long>(alternativeEntry.Slice(pcOffset, pcSize));
       // for (int i = 0; i < pcIds.Count; i++)
       // {
       //   continuousLogger.Write(pcData[i]);
@@ -468,14 +518,14 @@ namespace DysonSphereProgram.Modding.Blackbox
       continuousLogger.Write(pcDataTotal);
       continuousLogger.Write(',');
 
-      var stationData = entry.Slice(stationOffset, stationSize);
+      var stationData = alternativeEntry.Slice(stationOffset, stationSize);
       for (int i = 0; i < stationSize; i++)
       {
         continuousLogger.Write(stationData[i]);
         continuousLogger.Write(',');
       }
 
-      var factoryStatsData = MemoryMarshal.Cast<int, ProduceConsumePair>(entry.Slice(factoryStatsOffset, factoryStatsSize));
+      var factoryStatsData = MemoryMarshal.Cast<int, ProduceConsumePair>(alternativeEntry.Slice(factoryStatsOffset, factoryStatsSize));
       var stationStatsData = MemoryMarshal.Cast<int, ProduceConsumePair>(entry.Slice(stationStatsOffset, stationStatsSize));
       for (int i = 0; i < itemIds.Count; i++)
       {
@@ -499,6 +549,50 @@ namespace DysonSphereProgram.Modding.Blackbox
         continuousLogger.Write(',');
       }
       continuousLogger.WriteLine(0);
+
+      if (phase == BenchmarkPhase.Averaging)
+      {
+        continuousLogger.Write("Averaging Total");
+        continuousLogger.Write(',');
+        continuousLogger.Write(profilingTick);
+        continuousLogger.Write(',');
+        
+        continuousLogger.Write(averagingDataRaw[0]);
+        continuousLogger.Write(',');
+
+        var averagingDataRawSpan = new Span<long>(averagingDataRaw);
+        
+        var stationDataTotal = averagingDataRawSpan.Slice(stationOffset, stationSize);
+        for (int i = 0; i < stationSize; i++)
+        {
+          continuousLogger.Write(stationData[i]);
+          continuousLogger.Write(',');
+        }
+
+        var factoryStatsDataTotal = averagingDataRawSpan.Slice(factoryStatsOffset, factoryStatsSize);
+        for (int i = 0; i < itemIds.Count; i++)
+        {
+          continuousLogger.Write(factoryStatsDataTotal[2 * i]);
+          continuousLogger.Write(',');
+          continuousLogger.Write(factoryStatsDataTotal[2 * i + 1]);
+          continuousLogger.Write(',');
+          continuousLogger.Write(0);
+          continuousLogger.Write(',');
+          continuousLogger.Write(0);
+          continuousLogger.Write(',');
+        }
+      
+        for (int i = 0; i < itemIds.Count; i++)
+        {
+          continuousLogger.Write(totalStats[i].Produced);
+          continuousLogger.Write(',');
+          continuousLogger.Write(totalStats[i].Consumed);
+          continuousLogger.Write(',');
+          continuousLogger.Write(totalStats[i].Produced - totalStats[i].Consumed);
+          continuousLogger.Write(',');
+        }
+        continuousLogger.WriteLine(0);
+      }
     }
 
     private void LogItemStats()
@@ -542,12 +636,30 @@ namespace DysonSphereProgram.Modding.Blackbox
         totalStatsDiffSpan[i] = totalStats[i].Produced - totalStats[i].Consumed;
     }
 
-    private void CheckStabilization()
+    private void InitializeStabilizationData(int value)
+    {
+      for (int i = 0; i < stabilityDetectionData.Length; i++)
+        stabilityDetectionData[i] = value;
+    }
+
+    private void CheckStabilization_Max()
     {
       var entrySpan = profilingTsData.LevelEntryOffset(0, profilingTick);
       var totalStatsDiffSpan = entrySpan.Slice(statsDiffOffset, statsDiffSize);
       for (int i = 0; i < totalStatsDiffSpan.Length; i++)
         if (totalStatsDiffSpan[i] > stabilityDetectionData[i])
+        {
+          this.stabilizedTick = this.profilingTick;
+          stabilityDetectionData[i] = totalStatsDiffSpan[i];
+        }
+    }
+    
+    private void CheckStabilization_Min()
+    {
+      var entrySpan = profilingTsData.LevelEntryOffset(0, profilingTick);
+      var totalStatsDiffSpan = entrySpan.Slice(statsDiffOffset, statsDiffSize);
+      for (int i = 0; i < totalStatsDiffSpan.Length; i++)
+        if (totalStatsDiffSpan[i] < stabilityDetectionData[i])
         {
           this.stabilizedTick = this.profilingTick;
           stabilityDetectionData[i] = totalStatsDiffSpan[i];
@@ -564,11 +676,259 @@ namespace DysonSphereProgram.Modding.Blackbox
       stationStatsSpan.Clear();
     }
 
-    private void EndGameTick_Profiling()
+    private void BoostSpraySaturation()
+    {
+      for (int i = 0; i < spraycoaterIds.Count; i++)
+      {
+        ref var spraycoater = ref simulationFactory.cargoTraffic.spraycoaterPool[spraycoaterIds[i]];
+        if (spraycoater.incCount > 0)
+        {
+          spraycoater.incCount = spraycoater.incCapacity;
+          spraycoater.extraIncCount = 0;
+        }
+      }
+    }
+
+    private void BoostProductionSaturation()
+    {
+      for (int i = 0; i < assemblerIds.Count; i++)
+      {
+        ref var assembler = ref simulationFactory.factorySystem.assemblerPool[assemblerIds[i]];
+        if (assembler.replicating)
+        {
+          for (int j = 0; j < assembler.served.Length; j++)
+          {
+            assembler.served[j] = assembler.requireCounts[j] * 3;
+          }
+          for (int j = 0; j < assembler.produced.Length; j++)
+          {
+            assembler.produced[j] = assembler.productCounts[j] * 5;
+          }
+        }
+      }
+      
+      for (int i = 0; i < labIds.Count; i++)
+      {
+        ref var lab = ref simulationFactory.factorySystem.labPool[labIds[i]];
+        if (lab.replicating)
+        {
+          for (int j = 0; j < lab.served.Length; j++)
+          {
+            lab.served[j] = lab.requireCounts[j] * 3;
+          }
+          for (int j = 0; j < lab.produced.Length; j++)
+          {
+            lab.produced[j] = lab.productCounts[j] * 5;
+          }
+        }
+      }
+    }
+
+    private void EndGameTick_SpraySaturation()
+    {
+      profilingTsData.SummarizeAtHigherGranularity(profilingTick);
+      if (continuousLogging && (profilingTick + 1) % timeSpendGCD == 0)  WriteContinuousLoggingData(1);
+      profilingTick += 1;
+      ClearItemStats();
+      
+      BoostSpraySaturation();
+
+      if (profilingTick % timeSpendGCD == 0)
+      {
+        Plugin.Log.LogDebug("Spray Saturation Tick: " + profilingTick);
+
+        if (profilingTick > timeSpendGCD * analysisVerificationCount)
+        {
+          // Check if saturation occurred
+          var endIndex = (profilingTick / timeSpendGCD) - 1;
+          var circularOffset = 0;
+          if (endIndex > profilingEntryCount)
+          {
+            circularOffset = (endIndex - profilingEntryCount) % profilingEntryCount;
+            endIndex = profilingEntryCount - 1;
+          }
+
+          var saturated = true;
+          for (int i = endIndex; saturated && i >= endIndex - analysisVerificationCount; i--)
+          {
+            var stationData = profilingTsData.Level(1).Entry((i + circularOffset) % profilingEntryCount).Slice(stationOffset, stationSize);
+            for (int j = 0; j < stationSize; j++)
+              if (stationData[j] != 0)
+              {
+                saturated = false;
+                break;
+              }
+          }
+
+          if (saturated)
+          {
+            spraySaturationTick = profilingTick;
+            phase = BenchmarkPhase.SelfSpraySaturation;
+            profilingTick = 0;
+            ClearItemStats();
+          }
+        }
+      }
+      if (profilingTick >= totalTicks)
+      {
+        profilingTick = 0;
+        Plugin.Log.LogDebug($"Analysis Failed");
+        blackbox.NotifyAnalysisFailed();
+      }
+    }
+
+    private void EndGameTick_SelfSpraySaturation()
+    {
+      profilingTick += 1;
+      
+      BoostSpraySaturation();
+      
+      if (profilingTick % timeSpendGCD == 0)
+      {
+        Plugin.Log.LogDebug("Self Spray Saturation Tick: " + profilingTick);
+      }
+      if (profilingTick < spraySaturationTick)
+      {
+        for (int i = 0; i < spraycoaterIds.Count; i++)
+        {
+          ref var spraycoater = ref simulationFactory.cargoTraffic.spraycoaterPool[spraycoaterIds[i]];
+          spraycoater.incCount = 0;
+          spraycoater.extraIncCount = 0;
+        }
+      }
+      if (profilingTick >= spraySaturationTick * 2)
+      {
+        phase = BenchmarkPhase.ItemSaturation;
+        profilingTick = 0;
+        ClearItemStats();
+      }
+    }
+    
+    private void EndGameTick_ItemSaturation()
+    {
+      profilingTsData.SummarizeAtHigherGranularity(profilingTick);
+      if (continuousLogging && (profilingTick + 1) % timeSpendGCD == 0)  WriteContinuousLoggingData(1);
+      profilingTick += 1;
+      ClearItemStats();
+      
+      BoostSpraySaturation();
+      BoostProductionSaturation();
+
+      if (profilingTick % timeSpendGCD == 0)
+      {
+        Plugin.Log.LogDebug("Item Saturation Tick: " + profilingTick);
+        
+      }
+      if (profilingTick % timeSpendMaxIndividual == 0 && profilingTick > timeSpendMaxIndividual * analysisVerificationCount)
+      {
+        // Check if saturation occurred
+        
+        var endIndex = (profilingTick / timeSpendGCD) - 1;
+        var circularOffset = 0;
+        if (endIndex > profilingEntryCount)
+        {
+          circularOffset = (endIndex - profilingEntryCount) % profilingEntryCount;
+          endIndex = profilingEntryCount - 1;
+        }
+
+        int beginIndex = ((timeSpendMaxIndividual / timeSpendGCD) + 1) * analysisVerificationCount;
+
+        var saturated = true;
+        for (int i = endIndex; saturated && i >= beginIndex; i--)
+        {
+          var stationData = profilingTsData.Level(1).Entry((i + circularOffset) % profilingEntryCount).Slice(stationOffset, stationSize);
+          for (int j = 0; j < stationSize; j++)
+            if (stationData[j] != 0)
+            {
+              saturated = false;
+              break;
+            }
+        }
+
+        if (saturated)
+        {
+          InitializeStabilizationData(int.MaxValue);
+          phase = BenchmarkPhase.Benchmarking;
+          profilingTick = 0;
+          ClearItemStats();
+        }
+      }
+      if (profilingTick >= totalTicks)
+      {
+        profilingTick = 0;
+        Plugin.Log.LogDebug($"Analysis Failed");
+        blackbox.NotifyAnalysisFailed();
+      }
+    }
+
+    private void BenchmarkingCycleDetection(int circularOffset, out Func<int, int, bool> indexEquals, out Func<int, int, int, bool> summarizeEquals)
+    {
+      indexEquals = new Func<int, int, bool>((int i1, int i2) =>
+      {
+        var span1 = profilingTsData.Level(1).Entry((i1 + circularOffset) % profilingEntryCount);
+        var span2 = profilingTsData.Level(1).Entry((i2 + circularOffset) % profilingEntryCount);
+
+        // for (int i = this.statsDiffOffset; i < this.statsDiffOffset + this.statsDiffSize; i++)
+        //   if (span1[i] != span2[i])
+        //     return false;
+
+        for (int i = this.factoryStatsOffset; i < this.factoryStatsOffset + this.factoryStatsSize; i++)
+          if (span1[i] != span2[i])
+            return false;
+        
+        // for (int i = this.stationStatsOffset; i < this.stationStatsOffset + this.stationStatsSize; i++)
+        //   if (span1[i] != span2[i])
+        //     return false;
+        //
+        // for (int i = this.stationOffset; i < this.stationOffset + this.stationSize; i++)
+        //   if (span1[i] != span2[i])
+        //     return false;
+
+        return true;
+      });
+
+      summarizeEquals = new Func<int, int, int, bool>((int i1, int i2, int stride) =>
+      {
+        var span1Summary = new Span<int>(cycleDetectionData, 0, perTickProfilingSize);
+        var span2Summary = new Span<int>(cycleDetectionData, perTickProfilingSize, perTickProfilingSize);
+
+        summarizer.Initialize(span1Summary);
+        summarizer.Initialize(span2Summary);
+
+        for (int j = stride - 1; j >= 0; j--)
+        {
+          var span1 = profilingTsData.Level(1).Entry((i1 - j + circularOffset) % profilingEntryCount);
+          var span2 = profilingTsData.Level(1).Entry((i2 - j + circularOffset) % profilingEntryCount);
+
+          summarizer.Summarize(span1, span1Summary);
+          summarizer.Summarize(span2, span2Summary);
+        }
+
+        // for (int i = this.statsDiffOffset; i < this.statsDiffOffset + this.statsDiffSize; i++)
+        //   if (span1Summary[i] != span2Summary[i])
+        //     return false;
+
+        for (int i = this.factoryStatsOffset; i < this.factoryStatsOffset + this.factoryStatsSize; i++)
+          if (span1Summary[i] != span2Summary[i])
+            return false;
+        
+        // for (int i = this.stationStatsOffset; i < this.stationStatsOffset + this.stationStatsSize; i++)
+        //   if (span1Summary[i] != span2Summary[i])
+        //     return false;
+        //
+        // for (int i = this.stationOffset; i < this.stationOffset + this.stationSize; i++)
+        //   if (span1Summary[i] != span2Summary[i])
+        //     return false;
+
+        return true;
+      });
+    }
+
+    private void EndGameTick_Benchmarking()
     {
       LogItemStats();
       LogTotalItemStats();
-      CheckStabilization();
+      CheckStabilization_Min();
       profilingTsData.SummarizeAtHigherGranularity(profilingTick);
       if (continuousLogging && (profilingTick + 1) % timeSpendGCD == 0)  WriteContinuousLoggingData(1);
       profilingTick += 1;
@@ -590,88 +950,290 @@ namespace DysonSphereProgram.Modding.Blackbox
           endIndex = profilingEntryCount - 1;
         }
 
-        var indexEquals = new Func<int, int, bool>((int i1, int i2) =>
-        {
-          var span1 = profilingTsData.Level(1).Entry((i1 + circularOffset) % profilingEntryCount);
-          var span2 = profilingTsData.Level(1).Entry((i2 + circularOffset) % profilingEntryCount);
-
-          // for (int i = this.statsDiffOffset; i < this.statsDiffOffset + this.statsDiffSize; i++)
-          //   if (span1[i] != span2[i])
-          //     return false;
-
-          for (int i = this.factoryStatsOffset; i < this.factoryStatsOffset + this.factoryStatsSize; i++)
-            if (span1[i] != span2[i])
-              return false;
-          
-          // for (int i = this.stationStatsOffset; i < this.stationStatsOffset + this.stationStatsSize; i++)
-          //   if (span1[i] != span2[i])
-          //     return false;
-          //
-          // for (int i = this.stationOffset; i < this.stationOffset + this.stationSize; i++)
-          //   if (span1[i] != span2[i])
-          //     return false;
-
-          return true;
-        });
-
-        var summarizeEquals = new Func<int, int, int, bool>((int i1, int i2, int stride) =>
-        {
-          var span1Summary = new Span<int>(cycleDetectionData, 0, perTickProfilingSize);
-          var span2Summary = new Span<int>(cycleDetectionData, perTickProfilingSize, perTickProfilingSize);
-
-          summarizer.Initialize(span1Summary);
-          summarizer.Initialize(span2Summary);
-
-          for (int j = stride - 1; j >= 0; j--)
-          {
-            var span1 = profilingTsData.Level(1).Entry((i1 - j + circularOffset) % profilingEntryCount);
-            var span2 = profilingTsData.Level(1).Entry((i2 - j + circularOffset) % profilingEntryCount);
-
-            summarizer.Summarize(span1, span1Summary);
-            summarizer.Summarize(span2, span2Summary);
-          }
-
-          // for (int i = this.statsDiffOffset; i < this.statsDiffOffset + this.statsDiffSize; i++)
-          //   if (span1Summary[i] != span2Summary[i])
-          //     return false;
-
-          for (int i = this.factoryStatsOffset; i < this.factoryStatsOffset + this.factoryStatsSize; i++)
-            if (span1Summary[i] != span2Summary[i])
-              return false;
-          
-          // for (int i = this.stationStatsOffset; i < this.stationStatsOffset + this.stationStatsSize; i++)
-          //   if (span1Summary[i] != span2Summary[i])
-          //     return false;
-          //
-          // for (int i = this.stationOffset; i < this.stationOffset + this.stationSize; i++)
-          //   if (span1Summary[i] != span2Summary[i])
-          //     return false;
-
-          return true;
-        });
+        BenchmarkingCycleDetection(circularOffset, out var indexEquals, out var summarizeEquals);
 
         if (CycleDetection.TryDetectCycles(endIndex, 0, analysisVerificationCount, indexEquals, summarizeEquals, out int cycleLength))
         {
           this.observedCycleLength = cycleLength * timeSpendGCD;
-          Debug.Log($"Cycle Length of {this.observedCycleLength} detected");
-          this.GenerateRecipe(endIndex, circularOffset, cycleLength);
-          blackbox.NotifyBlackboxed(this.analysedRecipe);
+          Plugin.Log.LogDebug($"Cycle Length of {this.observedCycleLength} detected");
+          profilingTick = 0;
+          ClearItemStats();
+          phase = BenchmarkPhase.Averaging;
         }
       }
-      if (profilingTick >= this.profilingTickCount * 3)
+      if (profilingTick >= totalTicks)
       {
+        const int seconds120 = 120 * TicksPerSecond;
+        observedCycleLength = Math.Min(timeSpendLCM, Math.Max(timeSpendMaxIndividual, seconds120));
+        Plugin.Log.LogDebug($"Cycle Length of {this.observedCycleLength} assumed");
         profilingTick = 0;
-        Plugin.Log.LogDebug($"Analysis Failed");
-        blackbox.NotifyAnalysisFailed();
+        ClearItemStats();
+        phase = BenchmarkPhase.Averaging;
       }
     }
+    
+    private void EndGameTick_Averaging()
+    {
+      LogItemStats();
+      LogTotalItemStats();
+      profilingTsData.SummarizeAtHigherGranularity(profilingTick);
+      if (continuousLogging && (profilingTick + 1) % timeSpendGCD == 0)  WriteContinuousLoggingData(1);
+      profilingTick += 1;
+      ClearItemStats();
 
+      if (profilingTick % timeSpendGCD == 0)
+      {
+        Plugin.Log.LogDebug("Averaging Tick: " + profilingTick);
+        
+        var endIndex = (profilingTick / timeSpendGCD) - 1;
+        var circularOffset = 0;
+        if (endIndex > profilingEntryCount)
+        {
+          circularOffset = (endIndex - profilingEntryCount) % profilingEntryCount;
+          endIndex = profilingEntryCount - 1;
+        }
+
+        var multFactor = observedCycleLength;
+
+        var dataSpan = profilingTsData.Level(1).Entry((endIndex + circularOffset) % profilingEntryCount);
+        var averagingRawSpan = new Span<long>(averagingDataRaw);
+
+        var effectiveIdx = averagingDataStatsIdx % analysisVerificationCount;
+        var averagingSpan = new Span<int>(averagingDataStats, effectiveIdx * averagingDataSize, averagingDataSize);
+        
+        var pcCount = 1;
+        var pcData = MemoryMarshal.Cast<int, long>(dataSpan.Slice(pcOffset, pcCount * 2));
+        var averagingRawPcData = averagingRawSpan.Slice(pcOffset, pcCount);
+        for (int i = 0; i < pcCount; i++)
+          averagingRawPcData[i] += pcData[i];
+        
+        var stationData = dataSpan.Slice(stationOffset, stationSize);
+        var averagingRawStationData = averagingRawSpan.Slice(stationOffset, stationSize);
+        for (int i = 0; i < stationSize; i++)
+          averagingRawStationData[i] += stationData[i];
+        
+        var factoryStatsData = dataSpan.Slice(factoryStatsOffset, factoryStatsSize);
+        var averagingRawFactoryStatsData = averagingRawSpan.Slice(factoryStatsOffset, factoryStatsSize);
+        for (int i = 0; i < factoryStatsSize; i++)
+          averagingRawFactoryStatsData[i] += factoryStatsData[i];
+        
+        var averagingStatsPcData = MemoryMarshal.Cast<int, long>(averagingSpan.Slice(pcOffset, pcCount * 2));
+        for (int i = 0; i < pcCount; i++)
+          // averagingStatsPcData[i] = (long)Math.Ceiling((averagingRawPcData[i] * multFactor) / (double)profilingTick);
+          averagingStatsPcData[i] = (long)Math.Round((averagingRawPcData[i] * multFactor) / (double)profilingTick);
+        
+        var averagingStatsStationData = averagingSpan.Slice(stationOffset, stationSize);
+        for (int i = 0; i < stationSize; i++)
+        {
+          if (stationStorages[i].effectiveLogic == ELogisticStorage.Demand)
+            // averagingStatsStationData[i] = (int)Math.Ceiling((averagingRawStationData[i] * multFactor) / (double)profilingTick);
+            averagingStatsStationData[i] = (int)Math.Round((averagingRawStationData[i] * multFactor) / (double)profilingTick);
+          else if (stationStorages[i].effectiveLogic == ELogisticStorage.Supply)
+            // averagingStatsStationData[i] = (int)Math.Floor((-averagingRawStationData[i] * multFactor) / (double)profilingTick);
+            averagingStatsStationData[i] = (int)Math.Round((-averagingRawStationData[i] * multFactor) / (double)profilingTick);
+        }
+        
+        var averagingStatsFactoryStatsData = MemoryMarshal.Cast<int, ProduceConsumePair>(averagingSpan.Slice(factoryStatsOffset, factoryStatsSize));
+        for (int i = 0; i < factoryStatsSize; i++)
+        {
+          var value = (averagingRawFactoryStatsData[i] * multFactor) / (double)profilingTick;
+          if (i % 2 == 0)
+            // averagingStatsFactoryStatsData[i / 2].Produced = (int)Math.Floor(value);
+            averagingStatsFactoryStatsData[i / 2].Produced = (int)Math.Round(value);
+          else
+            // averagingStatsFactoryStatsData[i / 2].Consumed = (int)Math.Ceiling(value);
+            averagingStatsFactoryStatsData[i / 2].Consumed = (int)Math.Round(value);
+        }
+        
+        Plugin.Log.LogDebug(averagingRawPcData[0]);
+        Plugin.Log.LogDebug(averagingStatsPcData[0]);
+
+        averagingDataStatsIdx++;
+
+        var stable = true;
+        double maxRatio = 0;
+        for (int i = 0; stable && i < analysisVerificationCount; i++)
+        {
+          var averagingSpanEach = new Span<int>(averagingDataStats, i * averagingDataSize, averagingDataSize);
+          var averagingSpanEachPcData = MemoryMarshal.Cast<int, long>(averagingSpanEach.Slice(pcOffset, pcCount * 2));
+          for (int j = 0; j < pcCount; j++)
+          {
+            var diff = Math.Abs(averagingStatsPcData[j] - averagingSpanEachPcData[j]);
+            var threshold = averagingStatsPcData[j] * averagingThreshold;
+            if (diff > (long)threshold)
+            {
+              stable = false;
+              var ratio = diff / threshold;
+              if (ratio > maxRatio)
+                maxRatio = ratio;
+            }
+          }
+            
+          
+          var averagingSpanItemStats = averagingSpan.Slice(stationOffset, stationSize + factoryStatsSize);
+          var averagingSpanEachItemStats = averagingSpanEach.Slice(stationOffset, stationSize + factoryStatsSize);
+          for (int j = 0; j < stationSize + factoryStatsSize; j++)
+          {
+            var diff = Math.Abs(averagingSpanItemStats[j] - averagingSpanEachItemStats[j]);
+            var threshold = (int)(averagingSpanItemStats[j] * averagingThreshold);
+            if (diff > threshold)
+            {
+              stable = false;
+              var ratio = diff / (averagingSpanItemStats[j] * averagingThreshold);
+              if (ratio > maxRatio)
+                maxRatio = ratio;
+            }
+          }
+        }
+
+        if (stable)
+        {
+          Plugin.Log.LogDebug("Stable!");
+          GenerateRecipe_V2();
+          blackbox.NotifyBlackboxed(this.analysedRecipe);
+        }
+        else
+        {
+          Plugin.Log.LogDebug("Deviation: " + maxRatio);
+        }
+      }
+      // if (profilingTick >= totalTicks)
+      // {
+      //   profilingTick = 0;
+      //   Plugin.Log.LogDebug($"Analysis Failed");
+      //   blackbox.NotifyAnalysisFailed();
+      // }
+    }
     public override void EndGameTick()
     {
       if (blackbox.Status == BlackboxStatus.InAnalysis)
       {
-        EndGameTick_Profiling();
+        switch (phase)
+        {
+          case BenchmarkPhase.SpraySaturation:
+            EndGameTick_SpraySaturation();
+            break;
+          case BenchmarkPhase.SelfSpraySaturation:
+            EndGameTick_SelfSpraySaturation();
+            break;
+          case BenchmarkPhase.ItemSaturation:
+            EndGameTick_ItemSaturation();
+            break;
+          case BenchmarkPhase.Benchmarking:
+            EndGameTick_Benchmarking();
+            break;
+          case BenchmarkPhase.Averaging:
+            EndGameTick_Averaging();
+            break;
+        }
       }
+    }
+    
+    void GenerateRecipe_V2()
+    {
+      long idleEnergyPerTick = 0;
+      for (int i = 0; i < pcIds.Count; i++)
+        idleEnergyPerTick += simulationFactory.powerSystem.consumerPool[pcIds[i]].idleEnergyPerTick;
+
+      long idleEnergyPerCycle = idleEnergyPerTick * this.observedCycleLength;
+      
+      var averagingSpan = new Span<int>(averagingDataStats, 0, averagingDataSize);
+
+      long workingEnergyPerCycle = 0;
+
+      var pcData = MemoryMarshal.Cast<int, long>(averagingSpan.Slice(pcOffset, pcSize));
+      foreach (var pc in pcData)
+        workingEnergyPerCycle += pc;
+
+      var tmp_stationStorageExit = new Dictionary<int, Dictionary<int, int>>();
+      var tmp_stationStorageEnter = new Dictionary<int, Dictionary<int, int>>();
+      var stationData = averagingSpan.Slice(stationOffset, stationSize);
+      for (int i = 0; i < stationSize; i++)
+      {
+        var stationIdx = stationStorages[i].stationIdx;
+        var itemId = stationStorages[i].itemId;
+        var effectiveLogic = stationStorages[i].effectiveLogic;
+        if (effectiveLogic == ELogisticStorage.Demand && stationData[i] != 0)
+        {
+          if (!tmp_stationStorageExit.ContainsKey(stationIdx))
+            tmp_stationStorageExit[stationIdx] = new Dictionary<int, int>();
+          tmp_stationStorageExit[stationIdx][itemId] = stationData[i];
+        }
+        else if (effectiveLogic == ELogisticStorage.Supply && stationData[i] != 0)
+        {
+          if (!tmp_stationStorageEnter.ContainsKey(stationIdx))
+            tmp_stationStorageEnter[stationIdx] = new Dictionary<int, int>();
+          tmp_stationStorageEnter[stationIdx][itemId] = stationData[i];
+        }
+      }
+
+      var tmp_produces = new Dictionary<int, int>();
+      var tmp_consumes = new Dictionary<int, int>();
+
+      var factoryStatsSpan = MemoryMarshal.Cast<int, ProduceConsumePair>(averagingSpan.Slice(factoryStatsOffset, factoryStatsSize));
+
+      for (int i = 0; i < itemIds.Count; i++)
+      {
+        if (factoryStatsSpan[i].Produced > 0)
+          tmp_produces[itemIds[i]] = factoryStatsSpan[i].Produced;
+        if (factoryStatsSpan[i].Consumed > 0)
+          tmp_consumes[itemIds[i]] = factoryStatsSpan[i].Consumed;
+      }
+
+      Plugin.Log.LogDebug($"Idle Energy per cycle: {idleEnergyPerCycle}");
+      Plugin.Log.LogDebug($"Working Energy per cycle: {workingEnergyPerCycle}");
+      Plugin.Log.LogDebug($"Idle Power: {(idleEnergyPerCycle / this.observedCycleLength) * TicksPerSecond}");
+      Plugin.Log.LogDebug($"Working Power: {(workingEnergyPerCycle / this.observedCycleLength) * TicksPerSecond}");
+
+      Plugin.Log.LogDebug("Consumed");
+      foreach (var item in tmp_consumes)
+      {
+        var itemName = LDB.ItemName(item.Key);
+        Plugin.Log.LogDebug($"  {item.Value} {itemName}");
+      }
+
+      Plugin.Log.LogDebug("Produced");
+      foreach (var item in tmp_produces)
+      {
+        var itemName = LDB.ItemName(item.Key);
+        Plugin.Log.LogDebug($"  {item.Value} {itemName}");
+      }
+
+      Plugin.Log.LogDebug("Inputs");
+      foreach (var stationIdx in tmp_stationStorageExit)
+      {
+        Plugin.Log.LogDebug($"  Station #{stationIdx.Key}:");
+        foreach (var itemId in stationIdx.Value)
+        {
+          var itemName = LDB.ItemName(itemId.Key);
+          Plugin.Log.LogDebug($"    {itemId.Value} {itemName}");
+        }
+      }
+
+      Plugin.Log.LogDebug("Outputs");
+      foreach (var stationIdx in tmp_stationStorageEnter)
+      {
+        Plugin.Log.LogDebug($"  Station #{stationIdx.Key}:");
+        foreach (var itemId in stationIdx.Value)
+        {
+          var itemName = LDB.ItemName(itemId.Key);
+          Plugin.Log.LogDebug($"    {itemId.Value} {itemName}");
+        }
+      }
+
+      Plugin.Log.LogDebug($"Time (in ticks): {this.observedCycleLength}");
+      Plugin.Log.LogDebug($"Time (in seconds): {this.observedCycleLength / (float)TicksPerSecond}");
+
+      this.analysedRecipe = new BlackboxRecipe()
+      {
+        idleEnergyPerTick = idleEnergyPerTick,
+        workingEnergyPerTick = workingEnergyPerCycle / this.observedCycleLength,
+        timeSpend = this.observedCycleLength,
+        produces = tmp_produces,
+        consumes = tmp_consumes,
+        inputs = tmp_stationStorageExit,
+        outputs = tmp_stationStorageEnter
+      };
     }
 
     void GenerateRecipe(int endIndex, int circularOffset, int cycleLength)
@@ -812,11 +1374,44 @@ namespace DysonSphereProgram.Modding.Blackbox
 
     public override void AdjustStationStorageCount()
     {
-      for (int i = 0; i < stationIds.Count; i++)
+      for (int i = 0; i < stationSize; i++)
       {
-        ref readonly var station = ref simulationFactory.transport.stationPool[stationIds[i]];
-        for (int j = 0; j < station.storage.Length; j++)
-          station.storage[j].count = station.storage[j].max / 2;
+        ref readonly var ss = ref stationStorages[i];
+        ref var storage = ref simulationFactory.transport.stationPool[ss.stationId].storage[ss.storageIdx];
+        var count = 0;
+        var max = storage.max;
+        
+        switch (phase)
+        {
+          case BenchmarkPhase.SpraySaturation:
+          case BenchmarkPhase.SelfSpraySaturation:
+            {
+              if (ss.effectiveLogic == ELogisticStorage.Demand)
+                count = ss.isSpray ? max : 0;
+              if (ss.effectiveLogic == ELogisticStorage.Supply)
+                count = max;
+              break;
+            }
+          case BenchmarkPhase.ItemSaturation:
+            {
+              if (ss.effectiveLogic == ELogisticStorage.Demand)
+                count = max;
+              if (ss.effectiveLogic == ELogisticStorage.Supply)
+                count = max;
+              break;
+            }
+          case BenchmarkPhase.Benchmarking:
+          case BenchmarkPhase.Averaging:
+            {
+              if (ss.effectiveLogic == ELogisticStorage.Demand)
+                count = max;
+              if (ss.effectiveLogic == ELogisticStorage.Supply)
+                count = 0;
+              break;
+            }
+        }
+        
+        storage.count = count;
       }
     }
 
@@ -854,7 +1449,8 @@ namespace DysonSphereProgram.Modding.Blackbox
       }
     }
 
-    public override float Progress => this.profilingTick / (float)(profilingTickCount * 3);
-    public override string ProgressText => $"{profilingTick} / {profilingTickCount * 3}";
+    private int totalTicks => stabilizedTick + (profilingTickCount * analysisDurationMultiplier);
+    public override float Progress => this.profilingTick / (float)(totalTicks);
+    public override string ProgressText => $"{profilingTick} / {totalTicks}";
   }
 }

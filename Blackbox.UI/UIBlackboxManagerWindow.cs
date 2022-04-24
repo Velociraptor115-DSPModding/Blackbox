@@ -318,6 +318,39 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
             .WithOnOffVisualsAndSprites(onState, offState, UIBuilder.spriteCheckboxOn, UIBuilder.spriteCheckboxOff)
             ;
       }
+
+      static RectTransform[] CreateSlider(DataBindSourceBase<int, int> binding, int minValue, int maxValue)
+      {
+        var sliderConfig = new SliderConfiguration(minValue, maxValue, true);
+        var slider =
+            Create.Slider("slider", sliderConfig)
+              .WithLayoutSize(200, 12)
+              .Bind(binding.WithTransform(x => (float)x, x => (int)x))
+          ;
+
+        var minusBtn =
+            Create.Button("btn-minus", UIBuilder.stringFullMinus, () => binding.Value--)
+              .WithLayoutSize(30, 30)
+              .WithVisuals((IProperties<Image>)UIBuilder.buttonImgProperties)
+          ;
+
+        var inputField =
+            Create.InputField("input-field")
+              .WithLayoutSize(80, 30)
+              .WithContentType(InputField.ContentType.IntegerNumber)
+              .WithFont(UIBuilder.fontSAIRAR)
+              .WithFontSize(16)
+              .Bind(binding.WithTransform(x => x.ToString(), int.Parse))
+          ;
+
+        var plusBtn =
+            Create.Button("btn-plus", UIBuilder.stringFullPlus, () => binding.Value++)
+              .WithLayoutSize(30, 30)
+              .WithVisuals((IProperties<Image>)UIBuilder.buttonImgProperties)
+          ;
+
+        return new [] { slider.transform, minusBtn.transform, inputField.transform, plusBtn.transform };
+      }
       
       var autoBlackbox = new DelegateDataBindSource<bool>(
         () => BlackboxManager.Instance.autoBlackbox.isActive,
@@ -348,6 +381,18 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
         value => Blackbox.analyseInBackgroundConfig = value
       );
       CreateEntry(rootLayoutGroup, "Analyse in background thread", CreateOnOffToggle(analyseInBackground).transform);
+      
+      var analysisVerificationCount = new DelegateDataBindSource<int>(
+        () => BlackboxBenchmark.analysisVerificationCountConfig,
+        value => BlackboxBenchmark.analysisVerificationCountConfig = value
+      );
+      CreateEntry(rootLayoutGroup, "Verification Count", CreateSlider(analysisVerificationCount, 1, 20));
+      
+      var analysisDurationMultiplier = new DelegateDataBindSource<int>(
+        () => BlackboxBenchmark.analysisDurationMultiplierConfig,
+        value => BlackboxBenchmark.analysisDurationMultiplierConfig = value
+      );
+      CreateEntry(rootLayoutGroup, "Duration Multiplier", CreateSlider(analysisDurationMultiplier, 1, 20));
     }
     
     static void InitializeOverviewPanel(UIElementContext root)
