@@ -8,8 +8,9 @@ This mod allows you to "blackbox" sets of buildings together to improve your UPS
 * Press Ctrl + M to open up the Blackbox Manager Panel to view the blackboxed
 * Use "Highlight" to view what buildings got grouped together as a blackbox
 * Settings
-  * Ideally, you should not need to toggle any setting except for "Auto-blackbox" (I still recommend manual blackboxing at this stage, since the auto-blackbox algorithm goes through the stations in the order they were placed. The algorithm cannot discriminate between blackboxable and non-blackboxable setups without simulating them, so it will probably waste a lot of time on non-blackboxable setups)
-  * You can untick "Analyse in background thread" if you want to blackbox in game time and check your blackbox setup for inefficiencies
+  * You can untick "Analyse in background thread" if you want to blackbox in game time and check your blackbox setup for inefficiencies. Note that analysing in background thread is anywhere between 10x - 1000x faster.
+  * Use Cycle Length Override to specify the duration of the recipe - otherwise the automatic duration detection uses a very high duration and may delay the analysis
+  * Ideally, you should not need to toggle any other setting below except for "Auto-blackbox" (I still recommend manual blackboxing at this stage, since the auto-blackbox algorithm goes through the stations in the order they were placed. The algorithm cannot discriminate between blackboxable and non-blackboxable setups without simulating them, so it will probably waste a lot of time on non-blackboxable setups)
   * The rest of the settings are currently for debugging purpose. You will only need to change them if you have been in contact with me on the DSP Discord
 
 I will provide clearer explanations once the mod is out of alpha. For now, I just want to get this out there  
@@ -22,12 +23,21 @@ You are encouraged to contact me on the DSP Discord to provide feedback
 
 ## Roadmap
 
+* Maintain internal buffer for blackbox simulation
+* Complete blackbox insufficient power logic
+* Make the saturation phase run faster
 * Support proliferated output
-* Properly capture proliferator use in the consumption metrics
 * Provide visual feedback regarding which item / recipe is preventing the setup from being blackboxable
 * Figure out static analysis logic (if possible)
 
 ## Changelog
+
+### [v0.0.7](https://dsp.thunderstore.io/package/Raptor/Blackbox/0.0.7/)
+* Fix spraycoater consumption benchmarking
+* Fix power benchmarking for piler, spraycoater and traffic monitor
+* Fix UI exception on hovering over certain blackboxed entities, like belts (due to game patch 0.9.25.11989)
+* Revamp benchmarking logic (yet again). It should handle non-ratio setups much better now, instead of ending with "Analysis Failed"
+* Add setting to override the cycle length of the blackbox recipe
 
 ### [v0.0.6](https://dsp.thunderstore.io/package/Raptor/Blackbox/0.0.6/)
 * Fix bug introduced by consolidating power consumer logging in previous update
