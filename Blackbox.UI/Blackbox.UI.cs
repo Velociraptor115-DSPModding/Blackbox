@@ -10,19 +10,8 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
   [HarmonyPatch]
   class BlackboxUIPatch
   {
-    [HarmonyPrefix]
-    [HarmonyPatch(typeof(UIGame), nameof(UIGame.OnPlayerInspecteeChange))]
-    static void UIGame__OnPlayerInspecteeChange(EObjectType objType, int objId, ref bool __runOriginal)
+    private static int BlackboxId(PlanetFactory factory, in EntityData entity)
     {
-      if (!__runOriginal)
-        return;
-      var factory = GameMain.mainPlayer.factory;
-      if (factory == null || objType != EObjectType.Entity || objId <= 0)
-        return;
-
-      var entity = factory.entityPool[objId];
-      Debug.Log($"Trying to inspect Entity #{objId}");
-
       var blackboxId = 0;
 
       if (entity.assemblerId > 0 && factory.factorySystem.assemblerPool[entity.assemblerId].id < 0)
@@ -41,7 +30,37 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
         blackboxId = -factory.cargoTraffic.pilerPool[entity.pilerId].id;
       if (entity.monitorId > 0 && factory.cargoTraffic.monitorPool[entity.monitorId].id < 0)
         blackboxId = -factory.cargoTraffic.monitorPool[entity.monitorId].id;
+
+      return blackboxId;
+    }
+    
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(UIEntityBriefInfo), nameof(UIEntityBriefInfo.SetInfo))]
+    static void UIEntityBriefInfo__SetInfo(PlanetFactory _factory, int _entityId, ref bool __runOriginal)
+    {
+      if (!__runOriginal)
+        return;
       
+      ref readonly var entity = ref _factory.entityPool[_entityId];
+
+      if (BlackboxId(_factory, in entity) > 0)
+        __runOriginal = false;
+    }
+    
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(UIGame), nameof(UIGame.OnPlayerInspecteeChange))]
+    static void UIGame__OnPlayerInspecteeChange(EObjectType objType, int objId, ref bool __runOriginal)
+    {
+      if (!__runOriginal)
+        return;
+      var factory = GameMain.mainPlayer.factory;
+      if (factory == null || objType != EObjectType.Entity || objId <= 0)
+        return;
+
+      Debug.Log($"Trying to inspect Entity #{objId}");
+      ref readonly var entity = ref factory.entityPool[objId];
+
+      var blackboxId = BlackboxId(factory, in entity);
       var stationId = entity.stationId;
 
       if (blackboxId <= 0 && stationId <= 0)
