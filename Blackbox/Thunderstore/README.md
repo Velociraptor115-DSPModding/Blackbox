@@ -32,6 +32,11 @@ You are encouraged to contact me on the DSP Discord to provide feedback
 
 ## Changelog
 
+### [v0.0.8](https://dsp.thunderstore.io/package/Raptor/Blackbox/0.0.8/)
+* Fix issues in Item Saturation phase
+* Fix power consumption recording for piler, spraycoater and traffic monitor
+* Add support for fractionators in blackbox
+
 ### [v0.0.7](https://dsp.thunderstore.io/package/Raptor/Blackbox/0.0.7/)
 * Fix spraycoater consumption benchmarking
 * Fix power benchmarking for piler, spraycoater and traffic monitor

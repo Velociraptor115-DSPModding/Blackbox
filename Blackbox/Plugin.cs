@@ -19,7 +19,7 @@ namespace DysonSphereProgram.Modding.Blackbox
   {
     public const string GUID = "dev.raptor.dsp.Blackbox";
     public const string NAME = "Blackbox";
-    public const string VERSION = "0.0.7";
+    public const string VERSION = "0.0.8";
 
     private Harmony _harmony;
     internal static ManualLogSource Log;
