@@ -164,7 +164,7 @@ namespace DysonSphereProgram.Modding.Blackbox
           continue;
 
         ref var assembler = ref factorySystem.assemblerPool[assemblerId];
-        return PlanetFactorySimulation.IsAssemblerStacking(ref assembler) ? 0 : assembler.InternalUpdate(power, benchmark.productRegister, benchmark.consumeRegister);
+        return PlanetFactorySimulation.IsAssemblerStacking(ref assembler) ? 0 : assembler.InternalUpdate(1f, benchmark.productRegister, benchmark.consumeRegister);
       }
       
       return factorySystem.assemblerPool[assemblerId].InternalUpdate(power, productRegister, consumeRegister);
@@ -180,7 +180,7 @@ namespace DysonSphereProgram.Modding.Blackbox
         if (!benchmark.ShouldInterceptLab(factorySystem, labId))
           continue;
         
-        return factorySystem.labPool[labId].InternalUpdateAssemble(power, benchmark.productRegister, benchmark.consumeRegister);
+        return factorySystem.labPool[labId].InternalUpdateAssemble(1f, benchmark.productRegister, benchmark.consumeRegister);
       }
       
       return factorySystem.labPool[labId].InternalUpdateAssemble(power, productRegister, consumeRegister);
