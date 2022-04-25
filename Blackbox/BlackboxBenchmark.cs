@@ -757,7 +757,7 @@ namespace DysonSphereProgram.Modding.Blackbox
           endIndex = profilingEntryCount - 1;
         }
 
-        int beginIndex = ((timeSpendMaxIndividual / timeSpendGCD) + 1) * analysisVerificationCount;
+        int beginIndex = endIndex - (timeSpendMaxIndividual / timeSpendGCD * analysisVerificationCount);
 
         var saturated = true;
         for (int i = endIndex; saturated && i >= beginIndex; i--)
@@ -778,12 +778,6 @@ namespace DysonSphereProgram.Modding.Blackbox
           profilingTick = 0;
           ClearItemStats();
         }
-      }
-      if (profilingTick >= totalTicks)
-      {
-        profilingTick = 0;
-        Plugin.Log.LogDebug($"Analysis Failed");
-        blackbox.NotifyAnalysisFailed();
       }
     }
 
