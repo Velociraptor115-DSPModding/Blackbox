@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.IO;
@@ -226,6 +226,16 @@ namespace DysonSphereProgram.Modding.Blackbox
             
             factory.entityNeeds[assembler.entityId] = assembler.needs;
           }
+        }
+        
+        // TODO: Fractionator game tick
+        //   DONE
+        for (int i = 0; i < benchmark.fractionatorIds.Count; i++)
+        {
+          var fractionatorId = benchmark.fractionatorIds[i];
+          // Do NOT use ref readonly here as it will not perform the updates
+          ref var fractionator = ref factory.factorySystem.fractionatorPool[fractionatorId];
+          fractionator.InternalUpdate(factory, 1f, factory.entitySignPool, benchmark.productRegister, benchmark.consumeRegister);
         }
 
         // TODO: Lab game tick

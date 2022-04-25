@@ -50,6 +50,11 @@ namespace DysonSphereProgram.Modding.Blackbox
     {
       return false;
     }
+    
+    public virtual bool ShouldInterceptFractionator(FactorySystem factorySystem, int fractionatorId)
+    {
+      return false;
+    }
   }
 
   public class BlackboxGatewayMethods
@@ -169,6 +174,22 @@ namespace DysonSphereProgram.Modding.Blackbox
       
       return factorySystem.assemblerPool[assemblerId].InternalUpdate(power, productRegister, consumeRegister);
     }
+
+    public static uint InterceptFractionatorInternalUpdate
+      (FactorySystem factorySystem, int fractionatorId, float power, SignData[] entitySignPool, int[] productRegister, int[] consumeRegister)
+    {
+      foreach (var benchmark in benchmarks)
+      {
+        if (benchmark.blackbox.Status != BlackboxStatus.InAnalysis)
+          continue;
+        if (!benchmark.ShouldInterceptFractionator(factorySystem, fractionatorId))
+          continue;
+        
+        return factorySystem.fractionatorPool[fractionatorId].InternalUpdate(factorySystem.factory, 1f, entitySignPool, benchmark.productRegister, benchmark.consumeRegister);
+      }
+      
+      return factorySystem.fractionatorPool[fractionatorId].InternalUpdate(factorySystem.factory, power, entitySignPool, productRegister, consumeRegister);
+    }
     
     public static uint InterceptLabInternalUpdateAssemble
       (FactorySystem factorySystem, int labId, float power, int[] productRegister, int[] consumeRegister)
@@ -285,6 +306,42 @@ namespace DysonSphereProgram.Modding.Blackbox
 
       matcher.SetOperandAndAdvance(AccessTools.Method(typeof(BlackboxGatewayMethods),
         nameof(BlackboxGatewayMethods.InterceptAssemblerInternalUpdate)));
+
+      return matcher.InstructionEnumeration();
+    }
+    
+    [HarmonyTranspiler]
+    [HarmonyPatch(typeof(FactorySystem), nameof(FactorySystem.GameTick), typeof(long), typeof(bool))]
+    [HarmonyPatch(typeof(FactorySystem), nameof(FactorySystem.GameTick), typeof(long), typeof(bool), typeof(int), typeof(int), typeof(int))]
+    static IEnumerable<CodeInstruction> 
+      InterceptFractionatorInternalUpdatePatch(IEnumerable<CodeInstruction> code, ILGenerator generator)
+    {
+      var matcher = new CodeMatcher(code, generator);
+
+      matcher.MatchForward(false
+        , new CodeMatch(OpCodes.Ldarg_0)
+        , new CodeMatch(ci => ci.LoadsField(AccessTools.Field(typeof(FactorySystem), nameof(FactorySystem.fractionatorPool))))
+        , new CodeMatch(ci => ci.IsLdloc())
+        , new CodeMatch(OpCodes.Ldelema)
+        , new CodeMatch(OpCodes.Ldarg_0)
+        , new CodeMatch(ci => ci.LoadsField(AccessTools.Field(typeof(FactorySystem), nameof(FactorySystem.factory))))
+        , new CodeMatch(ci => ci.IsLdloc())
+        , new CodeMatch(ci => ci.IsLdloc())
+        , new CodeMatch(ci => ci.IsLdloc())
+        , new CodeMatch(ci => ci.IsLdloc())
+        , new CodeMatch(ci => ci.Calls(AccessTools.Method(typeof(FractionatorComponent), nameof(FractionatorComponent.InternalUpdate))))
+      );
+
+      matcher.Advance(1);
+      matcher.RemoveInstruction();
+      matcher.Advance(1);
+      matcher.RemoveInstruction();
+      matcher.RemoveInstruction();
+      matcher.RemoveInstruction();
+      matcher.Advance(4);
+
+      matcher.SetOperandAndAdvance(AccessTools.Method(typeof(BlackboxGatewayMethods),
+        nameof(BlackboxGatewayMethods.InterceptFractionatorInternalUpdate)));
 
       return matcher.InstructionEnumeration();
     }

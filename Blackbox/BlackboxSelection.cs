@@ -23,6 +23,7 @@ namespace DysonSphereProgram.Modding.Blackbox
     public readonly ImmutableSortedSet<int> pilerIds;
     public readonly ImmutableSortedSet<int> spraycoaterIds;
     public readonly ImmutableSortedSet<int> monitorIds;
+    public readonly ImmutableSortedSet<int> fractionatorIds;
     public readonly ImmutableSortedSet<int> itemIds;
 
     private BlackboxSelection(
@@ -38,6 +39,7 @@ namespace DysonSphereProgram.Modding.Blackbox
         , ImmutableSortedSet<int> pilerIds
         , ImmutableSortedSet<int> spraycoaterIds
         , ImmutableSortedSet<int> monitorIds
+        , ImmutableSortedSet<int> fractionatorIds
         , ImmutableSortedSet<int> itemIds
       )
     {
@@ -54,6 +56,7 @@ namespace DysonSphereProgram.Modding.Blackbox
       this.pilerIds = pilerIds;
       this.spraycoaterIds = spraycoaterIds;
       this.monitorIds = monitorIds;
+      this.fractionatorIds = fractionatorIds;
       this.itemIds = itemIds;
     }
 
@@ -71,6 +74,7 @@ namespace DysonSphereProgram.Modding.Blackbox
       var tmp_pilerIds = new List<int>();
       var tmp_spraycoaterIds = new List<int>();
       var tmp_monitorIds = new List<int>();
+      var tmp_fractionatorIds = new List<int>();
 
       foreach (var entityId in entityIds)
       {
@@ -146,6 +150,11 @@ namespace DysonSphereProgram.Modding.Blackbox
           tmp_monitorIds.Add(entity.monitorId);
           tmp_pcIds.Add(entity.powerConId);
         }
+        if (entity.fractionatorId > 0)
+        {
+          tmp_fractionatorIds.Add(entity.fractionatorId);
+          tmp_pcIds.Add(entity.powerConId);
+        }
       }
 
       var pcIds = tmp_pcIds.ToImmutableSortedSet();
@@ -159,6 +168,7 @@ namespace DysonSphereProgram.Modding.Blackbox
       var pilerIds = tmp_pilerIds.ToImmutableSortedSet();
       var spraycoaterIds = tmp_spraycoaterIds.ToImmutableSortedSet();
       var monitorIds = tmp_monitorIds.ToImmutableSortedSet();
+      var fractionatorIds = tmp_fractionatorIds.ToImmutableSortedSet();
       var entityIdsSet = entityIds.ToImmutableSortedSet();
 
       return new BlackboxSelection(
@@ -174,6 +184,7 @@ namespace DysonSphereProgram.Modding.Blackbox
           , pilerIds
           , spraycoaterIds
           , monitorIds
+          , fractionatorIds
           , itemIds
         );
     }
@@ -238,7 +249,7 @@ namespace DysonSphereProgram.Modding.Blackbox
 
       if (selection.stationIds.Count == 0)
         return true;
-      if (selection.assemblerIds.Count == 0 && selection.labIds.Count == 0)
+      if (selection.assemblerIds.Count == 0 && selection.labIds.Count == 0 && selection.fractionatorIds.Count == 0)
         return true;
 
       return false;
@@ -264,6 +275,9 @@ namespace DysonSphereProgram.Modding.Blackbox
         return false;
 
       if (entity.monitorId > 0)
+        return false;
+
+      if (entity.fractionatorId > 0)
         return false;
 
       if (entity.inserterId > 0)

@@ -52,6 +52,7 @@ namespace DysonSphereProgram.Modding.Blackbox
     internal readonly ImmutableSortedSet<int> splitterIds;
     internal readonly ImmutableSortedSet<int> pilerIds;
     internal readonly ImmutableSortedSet<int> spraycoaterIds;
+    internal readonly ImmutableSortedSet<int> fractionatorIds;
     internal readonly ImmutableSortedSet<int> itemIds;
     internal StationStorageData[] stationStorages;
 
@@ -138,6 +139,7 @@ namespace DysonSphereProgram.Modding.Blackbox
       this.splitterIds = blackbox.Selection.splitterIds;
       this.pilerIds = blackbox.Selection.pilerIds;
       this.spraycoaterIds = blackbox.Selection.spraycoaterIds;
+      this.fractionatorIds = blackbox.Selection.fractionatorIds;
       this.itemIds = blackbox.Selection.itemIds;
     }
 
@@ -646,6 +648,17 @@ namespace DysonSphereProgram.Modding.Blackbox
           {
             lab.produced[j] = lab.productCounts[j] * 5;
           }
+        }
+      }
+      
+      for (int i = 0; i < fractionatorIds.Count; i++)
+      {
+        ref var fractionator = ref simulationFactory.factorySystem.fractionatorPool[fractionatorIds[i]];
+        if (fractionator.fractionSuccess || fractionator.productOutputCount > 0)
+        {
+          fractionator.productOutputCount = fractionator.productOutputMax;
+          fractionator.fluidOutputCount = fractionator.fluidOutputMax;
+          fractionator.fluidInputCount = fractionator.fluidInputMax;
         }
       }
     }
@@ -1160,6 +1173,9 @@ namespace DysonSphereProgram.Modding.Blackbox
     
     public override bool ShouldInterceptSpraycoater(CargoTraffic cargoTraffic, int spraycoaterId)
       => cargoTraffic == simulationFactory.cargoTraffic && spraycoaterIds.Contains(spraycoaterId);
+    
+    public override bool ShouldInterceptFractionator(FactorySystem factorySystem, int fractionatorId)
+      => factorySystem == simulationFactory.factorySystem && fractionatorIds.Contains(fractionatorId);
 
     public override void AdjustStationStorageCount()
     {
