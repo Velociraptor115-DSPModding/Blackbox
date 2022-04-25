@@ -134,14 +134,17 @@ namespace DysonSphereProgram.Modding.Blackbox
         if (entity.pilerId > 0)
         {
           tmp_pilerIds.Add(entity.pilerId);
+          tmp_pcIds.Add(entity.powerConId);
         }
         if (entity.spraycoaterId > 0)
         {
           tmp_spraycoaterIds.Add(entity.spraycoaterId);
+          tmp_pcIds.Add(entity.powerConId);
         }
         if (entity.monitorId > 0)
         {
           tmp_monitorIds.Add(entity.monitorId);
+          tmp_pcIds.Add(entity.powerConId);
         }
       }
 
