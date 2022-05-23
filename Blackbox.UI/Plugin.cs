@@ -7,18 +7,15 @@ using BepInEx.Logging;
 using HarmonyLib;
 using UnityEngine;
 using DysonSphereProgram.Modding.Blackbox.UI.Builder;
+using BlackboxPlugin = DysonSphereProgram.Modding.Blackbox.Plugin;
 
 namespace DysonSphereProgram.Modding.Blackbox.UI
 {
-  [BepInPlugin(GUID, NAME, VERSION)]
+  [BepInAutoPlugin("dev.raptor.dsp.Blackbox-UI", "Blackbox-UI")]
   [BepInProcess("DSPGAME.exe")]
-  [BepInDependency("dev.raptor.dsp.Blackbox")]
-  public class Plugin : BaseUnityPlugin
+  [BepInDependency(BlackboxPlugin.Id)]
+  public partial class Plugin : BaseUnityPlugin
   {
-    public const string GUID = "dev.raptor.dsp.Blackbox-UI";
-    public const string NAME = "Blackbox-UI";
-    public const string VERSION = "0.0.9";
-
     private Harmony _harmony;
     internal static ManualLogSource Log;
     internal static string Path;
@@ -27,9 +24,9 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
     {
       Plugin.Log = Logger;
       Plugin.Path = Info.Location;
-      _harmony = new Harmony(GUID);
+      _harmony = new Harmony(Plugin.Id);
       _harmony.PatchAll(typeof(BlackboxUIPatch));
-      UIBuilderPlugin.Create(GUID, BlackboxUIGateway.CreateUI);
+      UIBuilderPlugin.Create(Plugin.Id, BlackboxUIGateway.CreateUI);
       Logger.LogInfo("Blackbox-UI Awake() called");
     }
 

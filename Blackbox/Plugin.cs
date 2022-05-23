@@ -11,17 +11,13 @@ using CommonAPI.Systems;
 
 namespace DysonSphereProgram.Modding.Blackbox
 {
-  [BepInPlugin(GUID, NAME, VERSION)]
+  [BepInAutoPlugin("dev.raptor.dsp.Blackbox", "Blackbox")]
   [BepInProcess("DSPGAME.exe")]
   [BepInDependency(DSPModSavePlugin.MODGUID)]
   [BepInDependency(CommonAPIPlugin.GUID)]
   [CommonAPISubmoduleDependency(nameof(ProtoRegistry), nameof(CustomKeyBindSystem))]
-  public class Plugin : BaseUnityPlugin, IModCanSave
+  public partial class Plugin : BaseUnityPlugin, IModCanSave
   {
-    public const string GUID = "dev.raptor.dsp.Blackbox";
-    public const string NAME = "Blackbox";
-    public const string VERSION = "0.0.9";
-
     private Harmony _harmony;
     internal static ManualLogSource Log;
     public static string Path;
@@ -30,7 +26,7 @@ namespace DysonSphereProgram.Modding.Blackbox
     {
       Plugin.Log = Logger;
       Plugin.Path = Info.Location;
-      _harmony = new Harmony(GUID);
+      _harmony = new Harmony(Plugin.Id);
       _harmony.PatchAll(typeof(BlackboxBenchmarkPatch));
       _harmony.PatchAll(typeof(BlackboxPatch));
       _harmony.PatchAll(typeof(VanillaSavePreservationPatch));
