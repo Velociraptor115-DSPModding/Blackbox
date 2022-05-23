@@ -32,6 +32,9 @@ You are encouraged to contact me on the DSP Discord to provide feedback
 
 ## Changelog
 
+### [v0.0.9](https://dsp.thunderstore.io/package/Raptor/Blackbox/0.0.8/)
+* Fix UI bug that threw errors when in space
+
 ### [v0.0.8](https://dsp.thunderstore.io/package/Raptor/Blackbox/0.0.8/)
 * Fix issues in Item Saturation phase
 * Fix power consumption recording for piler, spraycoater and traffic monitor
