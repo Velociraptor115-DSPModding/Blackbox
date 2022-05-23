@@ -41,6 +41,9 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
       if (!__runOriginal)
         return;
       
+      if (_factory == null || _entityId <= 0)
+        return;
+
       ref readonly var entity = ref _factory.entityPool[_entityId];
 
       if (BlackboxId(_factory, in entity) > 0)
