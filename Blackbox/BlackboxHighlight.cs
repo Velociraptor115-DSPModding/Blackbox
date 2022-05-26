@@ -69,7 +69,8 @@ namespace DysonSphereProgram.Modding.Blackbox
       if (blackboxId > 0)
       {
         var blackbox = BlackboxManager.Instance.blackboxes.Find(x => x.Id == blackboxId);
-        DoHighlight(blackbox);
+        if (blackbox != null)
+          DoHighlight(blackbox);
       }
     }
 

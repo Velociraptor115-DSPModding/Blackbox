@@ -45,6 +45,8 @@ namespace DysonSphereProgram.Modding.Blackbox
       {
         foreach (var blackbox in blackboxesMarkedForRemoval)
         {
+          if (blackbox.Id == highlight.blackboxId)
+            highlight.ClearHighlight();
           blackbox.Simulation?.EndBlackboxing();
           blackbox.Analysis?.Free();
           blackboxes.Remove(blackbox);
