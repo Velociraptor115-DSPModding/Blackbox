@@ -493,7 +493,7 @@ namespace DysonSphereProgram.Modding.Blackbox
         var stationDataTotal = averagingDataRawSpan.Slice(stationOffset, stationSize);
         for (int i = 0; i < stationSize; i++)
         {
-          continuousLogger.Write(stationData[i]);
+          continuousLogger.Write(stationDataTotal[i]);
           continuousLogger.Write(',');
         }
 
