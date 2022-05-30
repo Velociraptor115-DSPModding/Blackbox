@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.IO;
@@ -153,6 +153,26 @@ namespace DysonSphereProgram.Modding.Blackbox
       }
       newFactory.transport = newTransport;
       
+      // Set entity needs
+      for (int i = 0; i < selection.assemblerIds.Count; i++)
+      {
+        var assemblerId = selection.assemblerIds[i];
+        ref var assembler = ref newFactorySystem.assemblerPool[assemblerId];
+        newFactory.entityNeeds[assembler.entityId] = assembler.needs;
+      }
+      for (int i = 0; i < selection.labIds.Count; i++)
+      {
+        var labId = selection.labIds[i];
+        ref var lab = ref newFactorySystem.labPool[labId];
+        newFactory.entityNeeds[lab.entityId] = lab.needs;
+      }
+      for (int i = 0; i < selection.stationIds.Count; i++)
+      {
+        var stationId = selection.stationIds[i];
+        var station = newTransport.stationPool[stationId];
+        newFactory.entityNeeds[station.entityId] = station.needs;
+      }
+
       return newFactory;
 		}
 
@@ -224,7 +244,7 @@ namespace DysonSphereProgram.Modding.Blackbox
             if (!IsAssemblerStacking(ref assembler))
               assembler.InternalUpdate(1, benchmark.productRegister, benchmark.consumeRegister);
             
-            factory.entityNeeds[assembler.entityId] = assembler.needs;
+            // factory.entityNeeds[assembler.entityId] = assembler.needs;
           }
         }
         
@@ -250,7 +270,7 @@ namespace DysonSphereProgram.Modding.Blackbox
           {
             lab.UpdateNeedsAssemble();
             lab.InternalUpdateAssemble(1, benchmark.productRegister, benchmark.consumeRegister);
-            factory.entityNeeds[lab.entityId] = lab.needs;
+            // factory.entityNeeds[lab.entityId] = lab.needs;
           }
         }
 
@@ -274,7 +294,7 @@ namespace DysonSphereProgram.Modding.Blackbox
           var stationId = benchmark.stationIds[i];
           var station = factory.transport.stationPool[stationId];
           station.UpdateNeeds();
-          factory.entityNeeds[station.entityId] = station.needs;
+          // factory.entityNeeds[station.entityId] = station.needs;
         }
 
         // TODO: Station input from belt
