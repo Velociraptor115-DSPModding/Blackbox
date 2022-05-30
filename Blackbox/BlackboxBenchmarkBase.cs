@@ -61,56 +61,34 @@ namespace DysonSphereProgram.Modding.Blackbox
   {
     private static List<BlackboxBenchmarkBase> benchmarks = new List<BlackboxBenchmarkBase>();
 
+    private static readonly Action<BlackboxBenchmarkBase> actionAfterPowerConsumerComponents = b =>
+      b.LogPowerConsumer();
     public static void GameTick_AfterPowerConsumerComponents(PlanetFactory factory)
     {
-      if (DSPGame.IsMenuDemo)
-        return;
-      
-      foreach (var benchmark in benchmarks)
-      {
-        if (benchmark.blackbox.Status != BlackboxStatus.InAnalysis)
-          continue;
-        
-        if (!benchmark.factoryRef.TryGetTarget(out var benchmarkFactory))
-        {
-          Plugin.Log.LogError("PlanetFactory instance pulled out from under " + nameof(BlackboxBenchmark) + " in " + nameof(GameTick_AfterPowerConsumerComponents));
-          continue;
-        }
-
-        if (benchmarkFactory == factory)
-        {
-          benchmark.LogPowerConsumer();
-          //Debug.Log("Setting up initial values");
-        }
-      }
+      DoForRelevantBenchmarks(factory, actionAfterPowerConsumerComponents);
     }
 
+    private static readonly Action<BlackboxBenchmarkBase> actionAfterFactorySystem = b =>
+    {
+      b.AdjustStationStorageCount();
+      b.LogStationBefore();
+    };
     public static void GameTick_AfterFactorySystem(PlanetFactory factory)
     {
-      if (DSPGame.IsMenuDemo)
-        return;
-      
-      foreach (var benchmark in benchmarks)
-      {
-        if (benchmark.blackbox.Status != BlackboxStatus.InAnalysis)
-          continue;
-        
-        if (!benchmark.factoryRef.TryGetTarget(out var benchmarkFactory))
-        {
-          Plugin.Log.LogError("PlanetFactory instance pulled out from under " + nameof(BlackboxBenchmark) + " in " + nameof(GameTick_AfterFactorySystem));
-          continue;
-        }
-
-        if (benchmarkFactory == factory)
-        {
-          benchmark.AdjustStationStorageCount();
-          benchmark.LogStationBefore();
-          //Debug.Log("Noting production and consumption");
-        }
-      }
+      DoForRelevantBenchmarks(factory, actionAfterFactorySystem);
     }
 
+    private static readonly Action<BlackboxBenchmarkBase> actionAfterStationBeltOutput = b =>
+    {
+      b.LogStationAfter();
+      b.DoInserterAdaptiveStacking();
+    };
     public static void GameTick_AfterStationBeltOutput(PlanetFactory factory)
+    {
+      DoForRelevantBenchmarks(factory, actionAfterStationBeltOutput);
+    }
+
+    public static void DoForRelevantBenchmarks(PlanetFactory factory, Action<BlackboxBenchmarkBase> action)
     {
       if (DSPGame.IsMenuDemo)
         return;
@@ -122,14 +100,13 @@ namespace DysonSphereProgram.Modding.Blackbox
         
         if (!benchmark.factoryRef.TryGetTarget(out var benchmarkFactory))
         {
-          Plugin.Log.LogError("PlanetFactory instance pulled out from under " + nameof(BlackboxBenchmark) + " in " + nameof(GameTick_AfterStationBeltOutput));
+          Plugin.Log.LogError("PlanetFactory instance pulled out from under " + nameof(BlackboxBenchmark) + " in " + nameof(DoForRelevantBenchmarks));
           continue;
         }
 
         if (benchmarkFactory == factory)
         {
-          benchmark.LogStationAfter();
-          benchmark.DoInserterAdaptiveStacking();
+          action(benchmark);
         }
       }
     }
