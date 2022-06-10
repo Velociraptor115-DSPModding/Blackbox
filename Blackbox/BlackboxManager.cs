@@ -55,6 +55,26 @@ namespace DysonSphereProgram.Modding.Blackbox
       }
     }
 
+    public void PauseBlackboxBelts(PlanetFactory factory)
+    {
+      foreach (var blackbox in blackboxes)
+      {
+        if (blackbox.Simulation is { isBlackboxSimulating: true })
+          if (blackbox.FactoryRef.TryGetTarget(out var thisFactory) && thisFactory == factory)
+            blackbox.Simulation.PauseBelts();
+      }
+    }
+
+    public void ResumeBlackboxBelts(PlanetFactory factory)
+    {
+      foreach (var blackbox in blackboxes)
+      {
+        if (blackbox.Simulation is { isBlackboxSimulating: true })
+          if (blackbox.FactoryRef.TryGetTarget(out var thisFactory) && thisFactory == factory)
+            blackbox.Simulation.ResumeBelts();
+      }
+    }
+
     public void SimulateBlackboxes()
     {
       foreach (var blackbox in blackboxes)
@@ -170,6 +190,20 @@ namespace DysonSphereProgram.Modding.Blackbox
     public static void GameData__Destroy()
     {
       BlackboxManager.Instance.ClearAll();
+    }
+    
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(CargoTraffic), nameof(CargoTraffic.CreateRenderingBatches))]
+    public static void BeforeCreateRenderingBatches(CargoTraffic __instance)
+    {
+      BlackboxManager.Instance.PauseBlackboxBelts(__instance.factory);
+    }
+    
+    [HarmonyPostfix]
+    [HarmonyPatch(typeof(CargoTraffic), nameof(CargoTraffic.CreateRenderingBatches))]
+    public static void AfterCreateRenderingBatches(CargoTraffic __instance)
+    {
+      BlackboxManager.Instance.ResumeBlackboxBelts(__instance.factory);
     }
   }
 }

@@ -104,6 +104,28 @@ namespace DysonSphereProgram.Modding.Blackbox
       requiredEnergyRestore = null;
     }
 
+    public void ResumeBelts()
+    {
+      if (!factoryRef.TryGetTarget(out var factory))
+      {
+        Plugin.Log.LogError("PlanetFactory instance pulled out from under a blackbox simulation in " + nameof(ResumeBelts));
+        return;
+      }
+      
+      var cargoPathIds = blackbox.Selection.cargoPathIds;
+      
+      for (int i = 0; i < cargoPathIds.Count; i++)
+      {
+        var cargoPath = factory.cargoTraffic.pathPool[cargoPathIds[i]];
+        cargoPath.id = -blackbox.Id;
+        for (int j = 0; j < cargoPath.belts.Count; j++)
+        {
+          var beltId = cargoPath.belts[j];
+          factory.cargoTraffic.beltPool[beltId].id = -blackbox.Id;
+        }
+      }
+    }
+
     public void ResumeBlackboxing()
     {
       if (!factoryRef.TryGetTarget(out var factory))
@@ -116,7 +138,6 @@ namespace DysonSphereProgram.Modding.Blackbox
       var assemblerIds = blackbox.Selection.assemblerIds;
       var labIds = blackbox.Selection.labIds;
       var inserterIds = blackbox.Selection.inserterIds;
-      var cargoPathIds = blackbox.Selection.cargoPathIds;
       var splitterIds = blackbox.Selection.splitterIds;
       var spraycoaterIds = blackbox.Selection.spraycoaterIds;
       var pilerIds = blackbox.Selection.pilerIds;
@@ -147,16 +168,7 @@ namespace DysonSphereProgram.Modding.Blackbox
       {
         factory.factorySystem.inserterPool[inserterIds[i]].id = -blackbox.Id;
       }
-      for (int i = 0; i < cargoPathIds.Count; i++)
-      {
-        var cargoPath = factory.cargoTraffic.pathPool[cargoPathIds[i]];
-        cargoPath.id = -blackbox.Id;
-        for (int j = 0; j < cargoPath.belts.Count; j++)
-        {
-          var beltId = cargoPath.belts[j];
-          factory.cargoTraffic.beltPool[beltId].id = -blackbox.Id;
-        }
-      }
+      ResumeBelts();
       for (int i = 0; i < splitterIds.Count; i++)
       {
         factory.cargoTraffic.splitterPool[splitterIds[i]].id = -blackbox.Id;
@@ -181,6 +193,28 @@ namespace DysonSphereProgram.Modding.Blackbox
       isBlackboxSimulating = true;
     }
 
+    public void PauseBelts()
+    {
+      if (!factoryRef.TryGetTarget(out var factory))
+      {
+        Plugin.Log.LogError("PlanetFactory instance pulled out from under a blackbox simulation in " + nameof(PauseBelts));
+        return;
+      }
+      
+      var cargoPathIds = blackbox.Selection.cargoPathIds;
+      
+      for (int i = 0; i < cargoPathIds.Count; i++)
+      {
+        var cargoPath = factory.cargoTraffic.pathPool[cargoPathIds[i]];
+        cargoPath.id = cargoPathIds[i];
+        for (int j = 0; j < cargoPath.belts.Count; j++)
+        {
+          var beltId = cargoPath.belts[j];
+          factory.cargoTraffic.beltPool[beltId].id = beltId;
+        }
+      }
+    }
+
     public void PauseBlackboxing()
     {
       if (!factoryRef.TryGetTarget(out var factory))
@@ -193,7 +227,6 @@ namespace DysonSphereProgram.Modding.Blackbox
       var assemblerIds = blackbox.Selection.assemblerIds;
       var labIds = blackbox.Selection.labIds;
       var inserterIds = blackbox.Selection.inserterIds;
-      var cargoPathIds = blackbox.Selection.cargoPathIds;
       var splitterIds = blackbox.Selection.splitterIds;
       var spraycoaterIds = blackbox.Selection.spraycoaterIds;
       var pilerIds = blackbox.Selection.pilerIds;
@@ -219,16 +252,7 @@ namespace DysonSphereProgram.Modding.Blackbox
       {
         factory.factorySystem.inserterPool[inserterIds[i]].id = inserterIds[i];
       }
-      for (int i = 0; i < cargoPathIds.Count; i++)
-      {
-        var cargoPath = factory.cargoTraffic.pathPool[cargoPathIds[i]];
-        cargoPath.id = cargoPathIds[i];
-        for (int j = 0; j < cargoPath.belts.Count; j++)
-        {
-          var beltId = cargoPath.belts[j];
-          factory.cargoTraffic.beltPool[beltId].id = beltId;
-        }
-      }
+      PauseBelts();
       for (int i = 0; i < splitterIds.Count; i++)
       {
         factory.cargoTraffic.splitterPool[splitterIds[i]].id = splitterIds[i];
