@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Collections.Generic;
 using System.Linq;
+using UnityEngine;
 
 namespace DysonSphereProgram.Modding.Blackbox
 {
@@ -11,6 +12,9 @@ namespace DysonSphereProgram.Modding.Blackbox
     public List<int> warningIds = new List<int>();
 
     public const int blackboxSignalId = 60001;
+
+    public int hoverBlackboxId;
+    private List<BoxGizmo> hoverGizmos = new();
 
     public void RequestHighlight(Blackbox blackbox)
     {
@@ -32,13 +36,21 @@ namespace DysonSphereProgram.Modding.Blackbox
 
     public void DoHighlight(Blackbox blackbox)
     {
+      if (!blackbox.FactoryRef.TryGetTarget(out var factory))
+      {
+        Plugin.Log.LogError("PlanetFactory instance pulled out from under a blackbox simulation in " + nameof(DoHighlight));
+        return;
+      }
       var entityIds = blackbox.Selection.entityIds;
-      var factoryId = blackbox.Selection.factoryIndex;
 
       var warningSystem = GameMain.data.warningSystem;
+      var entityPool = factory.entityPool;
       foreach (var entityId in entityIds)
       {
-        var warningId = warningSystem.NewWarningData(factoryId, entityId, blackboxSignalId);
+        ref readonly var entity = ref entityPool[entityId];
+        if (entity.beltId > 0 || entity.inserterId > 0)
+          continue;
+        var warningId = warningSystem.NewWarningData(factory.index, entityId, blackboxSignalId);
         warningIds.Add(warningId);
       }
     }
@@ -55,6 +67,85 @@ namespace DysonSphereProgram.Modding.Blackbox
     {
       StopHighlight();
       blackboxId = 0;
+    }
+
+    public void SetHoverHighlight(Blackbox blackbox)
+    {
+      var blackboxIdToSet = blackbox?.Id ?? 0;
+      if (blackboxIdToSet == hoverBlackboxId)
+      {
+        DoHoverHighlightForBelts(blackbox);
+        return;
+      }
+      hoverBlackboxId = blackboxIdToSet;
+      if (blackbox == null)
+      {
+        foreach (var gizmo in hoverGizmos)
+          if (gizmo)
+            gizmo.Close();
+        hoverGizmos.Clear();
+      }
+      else if (blackbox.FactoryRef.TryGetTarget(out var factory))
+      {
+        var entityPool = factory.entityPool;
+
+        foreach (var entityId in blackbox.Selection.entityIds)
+        {
+          ref readonly var entity = ref entityPool[entityId];
+          if (entity.inserterId > 0 || entity.beltId > 0)
+            continue;
+
+          var prefabDesc = LDB.items.Select(entity.protoId).prefabDesc;
+          var gizmo = BoxGizmo.Create(entity.pos, entity.rot, prefabDesc.selectCenter, prefabDesc.selectSize);
+          gizmo.multiplier = 1f;
+          gizmo.alphaMultiplier = prefabDesc.selectAlpha;
+          gizmo.fadeInScale = 1.3f;
+          gizmo.fadeInTime = 0.05f;
+          gizmo.fadeInFalloff = 0.5f;
+          gizmo.fadeOutScale = 1.3f;
+          gizmo.fadeOutTime = 0.05f;
+          gizmo.fadeOutFalloff = 0.5f;
+          gizmo.color = Color.white;
+          gizmo.Open();
+          hoverGizmos.Add(gizmo);
+        }
+        
+        DoHoverHighlightForBelts(blackbox);
+      }
+    }
+
+    private void DoHoverHighlightForBelts(Blackbox blackbox)
+    {
+      if (blackbox == null)
+        return;
+
+      if (!blackbox.FactoryRef.TryGetTarget(out var factory))
+      {
+        Plugin.Log.LogError("PlanetFactory instance pulled out from under a blackbox simulation in " + nameof(DoHoverHighlightForBelts));
+        return;
+      }
+      
+      var entityPool = factory.entityPool;
+      var cargoTraffic = factory.cargoTraffic;
+      var beltPool = cargoTraffic.beltPool;
+      var pathPool = cargoTraffic.pathPool;
+      
+      foreach (var entityId in blackbox.Selection.entityIds)
+      {
+        ref readonly var entity = ref entityPool[entityId];
+        var beltId = entity.beltId;
+        if (beltId <= 0)
+          continue;
+        ref var belt = ref beltPool[beltId];
+        ref var path = ref pathPool[belt.segPathId];
+        var prevBeltId = belt.id;
+        var prevPathId = path.id;
+        belt.id = beltId;
+        path.id = belt.segPathId;
+        cargoTraffic.SetBeltState(beltId, 100);
+        belt.id = prevBeltId;
+        path.id = prevPathId;
+      }
     }
 
     const int saveLogicVersion = 1;

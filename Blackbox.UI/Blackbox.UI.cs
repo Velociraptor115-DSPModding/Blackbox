@@ -55,6 +55,32 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
       }
     }
 
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(PlayerControlGizmo), nameof(PlayerControlGizmo.SetMouseOverTarget))]
+    static void PlayerControlGizmo__SetMouseOverTarget(PlayerControlGizmo __instance, EObjectType tarType, ref int tarId, ref bool __runOriginal)
+    {
+      var highlight = BlackboxManager.Instance.highlight;
+      if (!__runOriginal)
+        goto null_return;
+      if (!(tarType == EObjectType.Entity && tarId != 0))
+        goto null_return;
+
+      var factory = __instance.player.factory;
+      if (factory == null)
+        goto null_return;
+
+      var blackbox = BlackboxUtils.QueryEntityForAssociatedBlackbox(factory, tarId);
+      if (blackbox == null)
+        goto null_return;
+
+      highlight.SetHoverHighlight(blackbox);
+      tarId = 0;
+      return;
+      
+      null_return:
+        highlight.SetHoverHighlight(null);
+    }
+
     [HarmonyPostfix]
     [HarmonyPatch(typeof(UIGame), nameof(UIGame._OnUpdate))]
     static void UIGame___OnUpdate()
