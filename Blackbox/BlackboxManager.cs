@@ -205,5 +205,18 @@ namespace DysonSphereProgram.Modding.Blackbox
     {
       BlackboxManager.Instance.ResumeBlackboxBelts(__instance.factory);
     }
+    
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(PlayerAction_Build), nameof(PlayerAction_Build.DoDismantleObject))]
+    public static void BeforeDismantleObject(PlayerAction_Build __instance, int objId)
+    {
+      __instance.SetFactoryReferences();
+      var blackbox = BlackboxUtils.QueryEntityForAssociatedBlackbox(__instance.factory, objId);
+      if (blackbox != null)
+      {
+        BlackboxManager.Instance.MarkBlackboxForRemoval(blackbox);
+        BlackboxManager.Instance.RemoveMarkedBlackboxes();
+      }
+    }
   }
 }
