@@ -197,6 +197,10 @@ namespace DysonSphereProgram.Modding.Blackbox
         return selection;
       }
 
+      var entityPool = factory.entityPool;
+      var stationPool = factory.transport.stationPool;
+      var beltPool = factory.cargoTraffic.beltPool;
+
       var yetToExpandEntityIds = new Queue<int>();
       var expandedEntityIds = ImmutableSortedSet.CreateBuilder<int>();
 
@@ -208,28 +212,88 @@ namespace DysonSphereProgram.Modding.Blackbox
       foreach (var station in stations)
         yetToExpandEntityIds.Enqueue(station.entityId);
 
+      BFS(yetToExpandEntityIds, expandedEntityIds, factory);
 
-      while (yetToExpandEntityIds.Count != 0)
+      var invalidEntityIds = new HashSet<int>();
+      var stationEntityIds = new HashSet<int>();
+      var expandedStations = new HashSet<StationComponent>();
+      foreach (var entityId in expandedEntityIds)
       {
-        BFS(yetToExpandEntityIds, expandedEntityIds, factory);
+        if (IsInvalid(entityId, factory))
+          invalidEntityIds.Add(entityId);
+        ref readonly var entity = ref entityPool[entityId];
+        if (entity.stationId > 0)
+        {
+          stationEntityIds.Add(entityId);
+          expandedStations.Add(stationPool[entity.stationId]);
+        }
+      }
+
+      // Remove invalid entities from the expanded selection 
+      var yetToExpandInvalidEntityIds = new Queue<int>();
+      var expandedInvalidEntityIds = new HashSet<int>();
+      while (invalidEntityIds.Count != 0)
+      {
+        var invalidEntityId = invalidEntityIds.First();
+        
+        yetToExpandInvalidEntityIds.Clear();
+        yetToExpandInvalidEntityIds.Enqueue(invalidEntityId);
+        
+        expandedInvalidEntityIds.Clear();
+        expandedInvalidEntityIds.UnionWith(stationEntityIds);
+        BFS(yetToExpandInvalidEntityIds, expandedInvalidEntityIds, factory);
+        expandedInvalidEntityIds.ExceptWith(stationEntityIds);
+        
+        expandedEntityIds.ExceptWith(expandedInvalidEntityIds);
+        invalidEntityIds.ExceptWith(expandedInvalidEntityIds);
+      }
+
+      const int warperItemId = 1210;
+
+      // Remove warper belts
+      foreach (var station in expandedStations)
+      {
+        foreach (var slot in station.slots)
+        {
+          if (slot.storageIdx <= 0 || slot.dir != IODir.Output || slot.beltId <= 0)
+            continue;
+          var storageIdx = slot.storageIdx - 1;
+          var itemId = storageIdx < station.storage.Length ? station.storage[storageIdx].itemId : warperItemId;
+          if (itemId != warperItemId)
+            continue;
+
+          var beltEntityId = beltPool[slot.beltId].entityId;
+
+          yetToExpandInvalidEntityIds.Clear();
+          yetToExpandInvalidEntityIds.Enqueue(beltEntityId);
+
+          expandedInvalidEntityIds.Clear();
+          expandedInvalidEntityIds.UnionWith(stationEntityIds);
+          BFS(yetToExpandInvalidEntityIds, expandedInvalidEntityIds, factory);
+          expandedInvalidEntityIds.ExceptWith(stationEntityIds);
+
+          expandedEntityIds.ExceptWith(expandedInvalidEntityIds);
+        }
       }
 
       return BlackboxSelection.CreateFrom(factory, expandedEntityIds);
     }
 
-    private static void BFS(Queue<int> yetToExpandEntityIds, ICollection<int> expandedEntityIds, PlanetFactory factory)
+    private static void BFS(Queue<int> yetToExpandEntityIds, ISet<int> expandedEntityIds, PlanetFactory factory)
     {
-      var entityIdToExpand = yetToExpandEntityIds.Dequeue();
-      expandedEntityIds.Add(entityIdToExpand);
-      ref readonly var entityToExpand = ref factory.entityPool[entityIdToExpand];
-
-      for (int i = 0; i < 16; i++)
+      while (yetToExpandEntityIds.Count != 0)
       {
-        factory.ReadObjectConn(entityIdToExpand, i, out _, out var otherEntityId, out _);
-        if (otherEntityId == 0)
-          continue;
-        if (!expandedEntityIds.Contains(otherEntityId))
-          yetToExpandEntityIds.Enqueue(otherEntityId);
+        var entityIdToExpand = yetToExpandEntityIds.Dequeue();
+        expandedEntityIds.Add(entityIdToExpand);
+
+        for (int i = 0; i < 16; i++)
+        {
+          factory.ReadObjectConn(entityIdToExpand, i, out _, out var otherEntityId, out _);
+          if (otherEntityId == 0)
+            continue;
+          if (!expandedEntityIds.Contains(otherEntityId) && !yetToExpandEntityIds.Contains(otherEntityId))
+            yetToExpandEntityIds.Enqueue(otherEntityId);
+        }
       }
     }
 
