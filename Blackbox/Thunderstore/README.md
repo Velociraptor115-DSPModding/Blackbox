@@ -2,6 +2,13 @@
 This mod allows you to "blackbox" sets of buildings together to improve your UPS  
 **WARNING**: This is an alpha release of the mod. Use at your own risk or if you would like to help support development of this mod  
 
+## What's new in this update?
+* You can now also create a blackbox by simply selecting / inspecting a station without blueprint mode and pressing the keybind (default: Ctrl + N)
+* The blackbox selection now tries to ignore isolated segments of unblackboxable buildings such as power generators or storages without invalidating the entire blackbox. This also excludes warper belts from the blackbox.
+* Added hover highlight for blackboxes (Experimental)
+* Proliferated outputs at stations are now supported
+* Added internal input/output buffer to blackboxed stations - now blackboxes with huge recipes (like 30k iron ore) won't get stuck because stations can't hold all the inputs at once
+
 ## How to use this mod
 * First install the mod, and reboot the game.
 * Go into blueprint copy mode, select the input station(s) of your blackbox setup and press Ctrl + N  
@@ -23,16 +30,29 @@ You are encouraged to contact me on the DSP Discord to provide feedback
 
 ## Roadmap
 
-* Maintain internal buffer for blackbox simulation
+* Provide configurable thresholds for analysis
+* Allow saturation phase to be skippable
+* ✅ Maintain internal buffer for blackbox simulation
+* ✅ Support proliferated output
 * Complete blackbox insufficient power logic
-* Make the saturation phase run faster
-* Support proliferated output
 * Provide visual feedback regarding which item / recipe is preventing the setup from being blackboxable
 * Figure out static analysis logic (if possible)
 
 ## Changelog
 
-### [v0.0.9](https://dsp.thunderstore.io/package/Raptor/Blackbox/0.0.8/)
+### [v0.1.0](https://dsp.thunderstore.io/package/Raptor/Blackbox/0.1.0/)
+* Fix a [crash](https://github.com/Velociraptor115-DSPModding/Blackbox/issues/1) that occurred when trying to save the game after deleting a blackbox that was being highlighted
+* Fix a [bug](https://github.com/Velociraptor115-DSPModding/Blackbox/issues/7) that prevented blackboxed belts / paths from being rendered
+* Sections with unblackboxable buildings and warper belts are now automatically ignored as part of blackbox selection
+* Deleting a building that's part of a blackbox also deletes the blackbox (Still doesn't cover all cases)
+* Add hover highlight for blackboxes (Experimental)
+* Allow blackbox creation using keybind from inspecting station normally without blueprint mode
+* Revamp station input output recording logic for benchmarking
+* Add support for proliferated outputs at stations
+* Add internal input/output buffer to blackboxed stations
+* Start following SemVer guidelines for this mod
+
+### [v0.0.9](https://dsp.thunderstore.io/package/Raptor/Blackbox/0.0.9/)
 * Fix UI bug that threw errors when in space
 
 ### [v0.0.8](https://dsp.thunderstore.io/package/Raptor/Blackbox/0.0.8/)
