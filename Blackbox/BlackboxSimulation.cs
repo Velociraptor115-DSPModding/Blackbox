@@ -19,8 +19,8 @@ namespace DysonSphereProgram.Modding.Blackbox
       this.factoryRef = blackbox.FactoryRef;
     }
 
-    Dictionary<int, Dictionary<int, int>> parsedInputs;
-    Dictionary<int, Dictionary<int, int>> parsedOutputs;
+    Dictionary<int, Dictionary<int, CNT>> parsedInputs;
+    Dictionary<int, Dictionary<int, CNTINC>> parsedOutputs;
 
     long[] idleEnergyRestore;
     long[] workEnergyRestore;
@@ -48,8 +48,8 @@ namespace DysonSphereProgram.Modding.Blackbox
       workEnergyRestore = new long[pcCount];
       requiredEnergyRestore = new long[pcCount];
 
-      parsedInputs = new Dictionary<int, Dictionary<int, int>>();
-      parsedOutputs = new Dictionary<int, Dictionary<int, int>>();
+      parsedInputs = new Dictionary<int, Dictionary<int, CNT>>();
+      parsedOutputs = new Dictionary<int, Dictionary<int, CNTINC>>();
 
       // WARNING: This will break once Fingerprint (and thereby Recipe) is selection-independent
       // TODO: Figure out a proper way to relate Selection, Fingerprint and Recipe
@@ -60,7 +60,7 @@ namespace DysonSphereProgram.Modding.Blackbox
         
         var stationId = stationIds[station.Key];
         if (!parsedInputs.ContainsKey(stationId))
-          parsedInputs[stationId] = new Dictionary<int, int>();
+          parsedInputs[stationId] = new Dictionary<int, CNT>();
         var stationStorage = factory.transport.stationPool[stationId].storage;
         foreach (var stationItemProduction in station.Value)
         {
@@ -77,7 +77,7 @@ namespace DysonSphereProgram.Modding.Blackbox
       {
         var stationId = stationIds[station.Key];
         if (!parsedOutputs.ContainsKey(stationId))
-          parsedOutputs[stationId] = new Dictionary<int, int>();
+          parsedOutputs[stationId] = new Dictionary<int, CNTINC>();
         var stationStorage = factory.transport.stationPool[stationId].storage;
         foreach (var stationItemRequirement in station.Value)
         {
@@ -299,12 +299,12 @@ namespace DysonSphereProgram.Modding.Blackbox
         foreach (var stationItemRequirement in station.Value)
         {
           var itemId = stationItemRequirement.Key;
-          var count = stationItemRequirement.Value;
+          var count = stationItemRequirement.Value.count;
 
           var consumedCount = (int)curPercent * count;
           var countToReturn = count - consumedCount;
 
-          GameMain.mainPlayer.TryAddItemToPackage(itemId, countToReturn, 0 /* Need to fix this */, true /*, stationEntityId */);
+          GameMain.mainPlayer.TryAddItemToPackage(itemId, countToReturn, 0, true /*, stationEntityId */);
         }
       }
 
@@ -315,11 +315,12 @@ namespace DysonSphereProgram.Modding.Blackbox
         foreach (var stationItemProduction in station.Value)
         {
           var itemId = stationItemProduction.Key;
-          var count = stationItemProduction.Value;
+          var (count, inc) = stationItemProduction.Value;
 
           var producedCount = (int)curPercent * count;
+          var producedInc = (int)curPercent * inc;
 
-          GameMain.mainPlayer.TryAddItemToPackage(itemId, producedCount, 0  /* Need to fix this */, true /*, stationEntityId */);
+          GameMain.mainPlayer.TryAddItemToPackage(itemId, producedCount, producedInc, true /*, stationEntityId */);
         }
       }
     }
@@ -354,11 +355,11 @@ namespace DysonSphereProgram.Modding.Blackbox
       if (timeIdx == 0)
       {
         // Check if we can simulate a cycle. Else return and wait till we can.
-        foreach (var station in parsedInputs)
+        foreach (var (stationId, inputRequirement) in parsedInputs)
         {
-          foreach (var stationItemRequirement in station.Value)
+          foreach (var (storageIdx, required) in inputRequirement)
           {
-            if (factory.transport.stationPool[station.Key].storage[stationItemRequirement.Key].count < stationItemRequirement.Value)
+            if (factory.transport.stationPool[stationId].storage[storageIdx].count < required.count)
             {
               isWorking = false;
               return;
@@ -367,11 +368,11 @@ namespace DysonSphereProgram.Modding.Blackbox
         }
 
         // Remove items and begin the cycle
-        foreach (var station in parsedInputs)
+        foreach (var (stationId, inputRequirement) in parsedInputs)
         {
-          foreach (var stationItemRequirement in station.Value)
+          foreach (var (storageIdx, required) in inputRequirement)
           {
-            factory.transport.stationPool[station.Key].storage[stationItemRequirement.Key].count -= stationItemRequirement.Value;
+            factory.transport.stationPool[stationId].storage[storageIdx].count -= required.count;
           }
         }
       }
@@ -383,12 +384,12 @@ namespace DysonSphereProgram.Modding.Blackbox
       {
         // Check if stations can handle the outputs.
         // Else don't make any progress
-        foreach (var station in parsedOutputs)
+        foreach (var (stationId, outputProduction) in parsedOutputs)
         {
-          foreach (var stationItemProduction in station.Value)
+          foreach (var (storageIdx, produced) in outputProduction)
           {
-            var stationStorage = factory.transport.stationPool[station.Key].storage[stationItemProduction.Key];
-            if (stationStorage.max < stationStorage.count + stationItemProduction.Value)
+            ref var stationStorage = ref factory.transport.stationPool[stationId].storage[storageIdx];
+            if (stationStorage.max < stationStorage.count + produced.count)
             {
               isWorking = false;
               return;
@@ -396,11 +397,13 @@ namespace DysonSphereProgram.Modding.Blackbox
           }
         }
 
-        foreach (var station in parsedOutputs)
+        foreach (var (stationId, outputProduction) in parsedOutputs)
         {
-          foreach (var stationItemProduction in station.Value)
+          foreach (var (storageIdx, produced) in outputProduction)
           {
-            factory.transport.stationPool[station.Key].storage[stationItemProduction.Key].count += stationItemProduction.Value;
+            ref var stationStorage = ref factory.transport.stationPool[stationId].storage[storageIdx];
+            stationStorage.count += produced.count;
+            stationStorage.inc += produced.inc;
           }
         }
 

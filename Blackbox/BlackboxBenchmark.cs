@@ -1086,8 +1086,8 @@ namespace DysonSphereProgram.Modding.Blackbox
       foreach (var pc in pcData)
         workingEnergyPerCycle += pc;
 
-      var tmp_stationStorageExit = new Dictionary<int, Dictionary<int, int>>();
-      var tmp_stationStorageEnter = new Dictionary<int, Dictionary<int, int>>();
+      var tmp_stationStorageExit = new Dictionary<int, Dictionary<int, CNT>>();
+      var tmp_stationStorageEnter = new Dictionary<int, Dictionary<int, CNTINC>>();
       var stationData = MemoryMarshal.Cast<int, StationEntryExit>(averagingSpan.Slice(stationOffset, stationSize));
       for (int i = 0; i < stationStorages.Length; i++)
       {
@@ -1095,17 +1095,19 @@ namespace DysonSphereProgram.Modding.Blackbox
         var itemId = stationStorages[i].itemId;
         var effectiveLogic = stationStorages[i].effectiveLogic;
         ref readonly var data = ref stationData[i];
-        if (effectiveLogic == ELogisticStorage.Demand && data.ExitCount - data.EntryCount > 0)
+        var flowCount = data.ExitCount - data.EntryCount;
+        var flowInc = data.ExitInc - data.EntryInc;
+        if (effectiveLogic == ELogisticStorage.Demand && flowCount > 0)
         {
           if (!tmp_stationStorageExit.ContainsKey(stationIdx))
-            tmp_stationStorageExit[stationIdx] = new Dictionary<int, int>();
-          tmp_stationStorageExit[stationIdx][itemId] = data.ExitCount - data.EntryCount;
+            tmp_stationStorageExit[stationIdx] = new Dictionary<int, CNT>();
+          tmp_stationStorageExit[stationIdx][itemId] = new CNT { count = flowCount };
         }
-        else if (effectiveLogic == ELogisticStorage.Supply && data.EntryCount - data.ExitCount > 0)
+        else if (effectiveLogic == ELogisticStorage.Supply && flowCount < 0)
         {
           if (!tmp_stationStorageEnter.ContainsKey(stationIdx))
-            tmp_stationStorageEnter[stationIdx] = new Dictionary<int, int>();
-          tmp_stationStorageEnter[stationIdx][itemId] = data.EntryCount - data.ExitCount;
+            tmp_stationStorageEnter[stationIdx] = new Dictionary<int, CNTINC>();
+          tmp_stationStorageEnter[stationIdx][itemId] = new CNTINC { count = -flowCount, inc = -flowInc};
         }
       }
 

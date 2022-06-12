@@ -8,6 +8,27 @@ using HarmonyLib;
 
 namespace DysonSphereProgram.Modding.Blackbox
 {
+  public struct CNT
+  {
+    public int count;
+    
+    public override string ToString() => count.ToString();
+  }
+
+  public struct CNTINC
+  {
+    public int count;
+    public int inc;
+    
+    public override string ToString() => $"({count}, {inc})";
+    
+    public void Deconstruct(out int count, out int inc)
+    {
+      count = this.count;
+      inc = this.inc;
+    }
+  }
+
   public class BlackboxRecipe
   {
     public long idleEnergyPerTick;
@@ -15,13 +36,13 @@ namespace DysonSphereProgram.Modding.Blackbox
     public int timeSpend;
     // TODO: The "StationId" here needs to be linked to the Fingerprint and then through to the Selection
     // Dictionary<StationId, Dictionary<ItemId, CountPerCycle>>
-    public Dictionary<int, Dictionary<int, int>> inputs;
-    public Dictionary<int, Dictionary<int, int>> outputs;
+    public Dictionary<int, Dictionary<int, CNT>> inputs;
+    public Dictionary<int, Dictionary<int, CNTINC>> outputs;
     // Dictionary<ItemId, CountPerCycle>
     public Dictionary<int, int> produces;
     public Dictionary<int, int> consumes;
 
-    const int saveLogicVersion = 1;
+    const int saveLogicVersion = 2;
 
     public void Export(BinaryWriter w)
     {
@@ -39,7 +60,7 @@ namespace DysonSphereProgram.Modding.Blackbox
         foreach (var itemEntry in itemEntries)
         {
           w.Write(itemEntry.Key);
-          w.Write(itemEntry.Value);
+          w.Write(itemEntry.Value.count);
         }
       }
 
@@ -52,7 +73,8 @@ namespace DysonSphereProgram.Modding.Blackbox
         foreach (var itemEntry in itemEntries)
         {
           w.Write(itemEntry.Key);
-          w.Write(itemEntry.Value);
+          w.Write(itemEntry.Value.count);
+          w.Write(itemEntry.Value.inc);
         }
       }
 
@@ -80,33 +102,36 @@ namespace DysonSphereProgram.Modding.Blackbox
       recipe.timeSpend = r.ReadInt32();
 
       var inputsCount = r.ReadInt32();
-      recipe.inputs = new Dictionary<int, Dictionary<int, int>>();
+      recipe.inputs = new Dictionary<int, Dictionary<int, CNT>>();
       for (int i = 0; i < inputsCount; i++)
       {
         var stationEntryKey = r.ReadInt32();
         var itemEntriesCount = r.ReadInt32();
-        var itemEntries = new Dictionary<int, int>();
+        var itemEntries = new Dictionary<int, CNT>();
         for (int j = 0; j < itemEntriesCount; j++)
         {
           var itemEntryKey = r.ReadInt32();
-          var itemEntryValue = r.ReadInt32();
-          itemEntries.Add(itemEntryKey, itemEntryValue);
+          var count = r.ReadInt32();
+          itemEntries.Add(itemEntryKey, new CNT { count = count });
         }
         recipe.inputs.Add(stationEntryKey, itemEntries);
       }
 
       var outputsCount = r.ReadInt32();
-      recipe.outputs = new Dictionary<int, Dictionary<int, int>>();
+      recipe.outputs = new Dictionary<int, Dictionary<int, CNTINC>>();
       for (int i = 0; i < outputsCount; i++)
       {
         var stationEntryKey = r.ReadInt32();
         var itemEntriesCount = r.ReadInt32();
-        var itemEntries = new Dictionary<int, int>();
+        var itemEntries = new Dictionary<int, CNTINC>();
         for (int j = 0; j < itemEntriesCount; j++)
         {
           var itemEntryKey = r.ReadInt32();
-          var itemEntryValue = r.ReadInt32();
-          itemEntries.Add(itemEntryKey, itemEntryValue);
+          var count = r.ReadInt32();
+          var inc = 0;
+          if (saveLogicVersion >= 2)
+            inc = r.ReadInt32();
+          itemEntries.Add(itemEntryKey, new CNTINC { count = count, inc = inc });
         }
         recipe.outputs.Add(stationEntryKey, itemEntries);
       }
