@@ -1179,10 +1179,11 @@ namespace DysonSphereProgram.Modding.Blackbox
 
     public override void AdjustStationStorageCount()
     {
+      var stationPool = simulationFactory.transport.stationPool;
       for (int i = 0; i < stationSize; i++)
       {
         ref readonly var ss = ref stationStorages[i];
-        ref var storage = ref simulationFactory.transport.stationPool[ss.stationId].storage[ss.storageIdx];
+        ref var storage = ref stationPool[ss.stationId].storage[ss.storageIdx];
         var count = 0;
         var max = storage.max;
         
@@ -1218,6 +1219,9 @@ namespace DysonSphereProgram.Modding.Blackbox
         
         storage.count = count;
       }
+
+      for (int i = 0; i < stationIds.Count; i++)
+        stationPool[stationIds[i]].UpdateNeeds();
     }
 
     public override void LogStationBefore()

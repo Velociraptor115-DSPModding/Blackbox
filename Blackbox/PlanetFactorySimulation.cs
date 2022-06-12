@@ -287,16 +287,6 @@ namespace DysonSphereProgram.Modding.Blackbox
             lab.UpdateOutputToNext(factory.factorySystem.labPool);
         }
 
-        // TODO: Reset station counts and update needs
-        //   DONE
-        for (int i = 0; i < benchmark.stationIds.Count; i++)
-        {
-          var stationId = benchmark.stationIds[i];
-          var station = factory.transport.stationPool[stationId];
-          station.UpdateNeeds();
-          // factory.entityNeeds[station.entityId] = station.needs;
-        }
-
         // TODO: Station input from belt
         // TODO: This makes use of factory.entitySignPool
         //   DONE
