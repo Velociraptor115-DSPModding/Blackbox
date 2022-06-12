@@ -40,6 +40,15 @@ namespace DysonSphereProgram.Modding.Blackbox
     private static readonly int[] sprayItemIds = { 1141, 1142, 1143 };
   }
 
+  [StructLayout(LayoutKind.Sequential)]
+  public struct StationEntryExit
+  {
+    public int EntryCount;
+    public int EntryInc;
+    public int ExitCount;
+    public int ExitInc;
+  }
+
   public class BlackboxBenchmark: BlackboxBenchmarkBase
   {
     internal readonly ImmutableSortedSet<int> entityIds;
@@ -212,7 +221,7 @@ namespace DysonSphereProgram.Modding.Blackbox
         {
           ref readonly var stationStorage = ref station.storage[j];
           var effectiveLogic = stationStorage.remoteLogic == ELogisticStorage.None ? stationStorage.localLogic : stationStorage.remoteLogic;
-          if (effectiveLogic != ELogisticStorage.None && stationStorage.itemId > 0)
+          if (stationStorage.itemId > 0)
           {
             var itemIdx = itemIds.IndexOf(stationStorage.itemId);
             tmp_stationStorages.Add(new StationStorageData(
@@ -227,7 +236,7 @@ namespace DysonSphereProgram.Modding.Blackbox
         }
       }
       this.stationStorages = tmp_stationStorages.ToImmutable().ToArray();
-      this.stationSize = stationStorages.Length;
+      this.stationSize = stationStorages.Length * 4;
       this.factoryStatsSize = itemIds.Count * 2;
       this.stationStatsSize = itemIds.Count * 2;
       this.statsDiffSize = itemIds.Count;
@@ -399,12 +408,21 @@ namespace DysonSphereProgram.Modding.Blackbox
       continuousLogger.Write($"Tick,");
       continuousLogger.Write($"PC,");
 
-      for (int i = 0; i < stationSize; i++)
+      for (int i = 0; i < stationStorages.Length; i++)
       {
-        var inout = stationStorages[i].effectiveLogic == ELogisticStorage.Demand ? "O" : "I";
+        var inout = stationStorages[i].effectiveLogic switch
+        {
+          ELogisticStorage.Demand => "D",
+          ELogisticStorage.Supply => "S",
+          ELogisticStorage.None => "N",
+          _ => "U"
+        };
         var itemId = stationStorages[i].itemId;
         var itemName = LDB.ItemName(itemId).Replace(" ", "").Trim();
-        continuousLogger.Write($"S{i}_{inout}_{itemName},");
+        continuousLogger.Write($"S{i}_{inout}_{itemName}_Entry,");
+        continuousLogger.Write($"S{i}_{inout}_{itemName}_EntryInc,");
+        continuousLogger.Write($"S{i}_{inout}_{itemName}_Exit,");
+        continuousLogger.Write($"S{i}_{inout}_{itemName}_ExitInc,");
       }
 
       for (int i = 0; i < itemIds.Count; i++)
@@ -446,10 +464,16 @@ namespace DysonSphereProgram.Modding.Blackbox
       continuousLogger.Write(pcDataTotal);
       continuousLogger.Write(',');
 
-      var stationData = alternativeEntry.Slice(stationOffset, stationSize);
-      for (int i = 0; i < stationSize; i++)
+      var stationData = MemoryMarshal.Cast<int, StationEntryExit>(alternativeEntry.Slice(stationOffset, stationSize));
+      for (int i = 0; i < stationStorages.Length; i++)
       {
-        continuousLogger.Write(stationData[i]);
+        continuousLogger.Write(stationData[i].EntryCount);
+        continuousLogger.Write(',');
+        continuousLogger.Write(stationData[i].EntryInc);
+        continuousLogger.Write(',');
+        continuousLogger.Write(stationData[i].ExitCount);
+        continuousLogger.Write(',');
+        continuousLogger.Write(stationData[i].ExitInc);
         continuousLogger.Write(',');
       }
 
@@ -491,9 +515,15 @@ namespace DysonSphereProgram.Modding.Blackbox
         var averagingDataRawSpan = new Span<long>(averagingDataRaw);
         
         var stationDataTotal = averagingDataRawSpan.Slice(stationOffset, stationSize);
-        for (int i = 0; i < stationSize; i++)
+        for (int i = 0; i < stationStorages.Length; i++)
         {
-          continuousLogger.Write(stationDataTotal[i]);
+          continuousLogger.Write(stationDataTotal[4 * i]);
+          continuousLogger.Write(',');
+          continuousLogger.Write(stationDataTotal[4 * i + 1]);
+          continuousLogger.Write(',');
+          continuousLogger.Write(stationDataTotal[4 * i + 2]);
+          continuousLogger.Write(',');
+          continuousLogger.Write(stationDataTotal[4 * i + 3]);
           continuousLogger.Write(',');
         }
 
@@ -536,15 +566,15 @@ namespace DysonSphereProgram.Modding.Blackbox
         factoryStatsData[i].Produced += productRegister[itemIds[i]];
       }
 
-      var stationData = levelEntrySpan.Slice(stationOffset, stationSize);
-      for (int i = 0; i < stationSize; i++)
+      var stationData = MemoryMarshal.Cast<int, StationEntryExit>(levelEntrySpan.Slice(stationOffset, stationSize));
+      for (int i = 0; i < stationStorages.Length; i++)
       {
         var itemIdx = stationStorages[i].itemIdx;
         var effectiveLogic = stationStorages[i].effectiveLogic;
         if (effectiveLogic == ELogisticStorage.Supply)
-          stationStatsData[itemIdx].Consumed += -stationData[i];
+          stationStatsData[itemIdx].Consumed += stationData[i].EntryCount - stationData[i].ExitCount;
         if (effectiveLogic == ELogisticStorage.Demand)
-          stationStatsData[itemIdx].Produced += stationData[i];
+          stationStatsData[itemIdx].Produced += stationData[i].ExitCount - stationData[i].EntryCount;
       }
     }
 
@@ -942,14 +972,7 @@ namespace DysonSphereProgram.Modding.Blackbox
         
         var averagingStatsStationData = averagingSpan.Slice(stationOffset, stationSize);
         for (int i = 0; i < stationSize; i++)
-        {
-          if (stationStorages[i].effectiveLogic == ELogisticStorage.Demand)
-            // averagingStatsStationData[i] = (int)Math.Ceiling((averagingRawStationData[i] * multFactor) / (double)profilingTick);
-            averagingStatsStationData[i] = (int)Math.Round((averagingRawStationData[i] * multFactor) / (double)profilingTick);
-          else if (stationStorages[i].effectiveLogic == ELogisticStorage.Supply)
-            // averagingStatsStationData[i] = (int)Math.Floor((-averagingRawStationData[i] * multFactor) / (double)profilingTick);
-            averagingStatsStationData[i] = (int)Math.Round((-averagingRawStationData[i] * multFactor) / (double)profilingTick);
-        }
+          averagingStatsStationData[i] = (int)Math.Round((averagingRawStationData[i] * multFactor) / (double)profilingTick);
         
         var averagingStatsFactoryStatsData = MemoryMarshal.Cast<int, ProduceConsumePair>(averagingSpan.Slice(factoryStatsOffset, factoryStatsSize));
         for (int i = 0; i < factoryStatsSize; i++)
@@ -1065,23 +1088,24 @@ namespace DysonSphereProgram.Modding.Blackbox
 
       var tmp_stationStorageExit = new Dictionary<int, Dictionary<int, int>>();
       var tmp_stationStorageEnter = new Dictionary<int, Dictionary<int, int>>();
-      var stationData = averagingSpan.Slice(stationOffset, stationSize);
-      for (int i = 0; i < stationSize; i++)
+      var stationData = MemoryMarshal.Cast<int, StationEntryExit>(averagingSpan.Slice(stationOffset, stationSize));
+      for (int i = 0; i < stationStorages.Length; i++)
       {
         var stationIdx = stationStorages[i].stationIdx;
         var itemId = stationStorages[i].itemId;
         var effectiveLogic = stationStorages[i].effectiveLogic;
-        if (effectiveLogic == ELogisticStorage.Demand && stationData[i] != 0)
+        ref readonly var data = ref stationData[i];
+        if (effectiveLogic == ELogisticStorage.Demand && data.ExitCount - data.EntryCount > 0)
         {
           if (!tmp_stationStorageExit.ContainsKey(stationIdx))
             tmp_stationStorageExit[stationIdx] = new Dictionary<int, int>();
-          tmp_stationStorageExit[stationIdx][itemId] = stationData[i];
+          tmp_stationStorageExit[stationIdx][itemId] = data.ExitCount - data.EntryCount;
         }
-        else if (effectiveLogic == ELogisticStorage.Supply && stationData[i] != 0)
+        else if (effectiveLogic == ELogisticStorage.Supply && data.EntryCount - data.ExitCount > 0)
         {
           if (!tmp_stationStorageEnter.ContainsKey(stationIdx))
             tmp_stationStorageEnter[stationIdx] = new Dictionary<int, int>();
-          tmp_stationStorageEnter[stationIdx][itemId] = stationData[i];
+          tmp_stationStorageEnter[stationIdx][itemId] = data.EntryCount - data.ExitCount;
         }
       }
 
@@ -1180,12 +1204,13 @@ namespace DysonSphereProgram.Modding.Blackbox
     public override void AdjustStationStorageCount()
     {
       var stationPool = simulationFactory.transport.stationPool;
-      for (int i = 0; i < stationSize; i++)
+      for (int i = 0; i < stationStorages.Length; i++)
       {
         ref readonly var ss = ref stationStorages[i];
         ref var storage = ref stationPool[ss.stationId].storage[ss.storageIdx];
-        var count = 0;
+        var count = storage.count;
         var max = storage.max;
+        var inc = storage.inc;
         
         switch (phase)
         {
@@ -1193,31 +1218,32 @@ namespace DysonSphereProgram.Modding.Blackbox
           case BenchmarkPhase.SelfSpraySaturation:
             {
               if (ss.effectiveLogic == ELogisticStorage.Demand)
-                count = ss.isSpray ? max : 0;
+                (count, inc) = (ss.isSpray ? max : 0, 0);
               if (ss.effectiveLogic == ELogisticStorage.Supply)
-                count = max;
+                (count, inc) = (max, 0);
               break;
             }
           case BenchmarkPhase.ItemSaturation:
             {
               if (ss.effectiveLogic == ELogisticStorage.Demand)
-                count = max;
+                (count, inc) = (max, 0);
               if (ss.effectiveLogic == ELogisticStorage.Supply)
-                count = max;
+                (count, inc) = (max, 0);
               break;
             }
           case BenchmarkPhase.Benchmarking:
           case BenchmarkPhase.Averaging:
             {
               if (ss.effectiveLogic == ELogisticStorage.Demand)
-                count = max;
+                (count, inc) = (max, 0);
               if (ss.effectiveLogic == ELogisticStorage.Supply)
-                count = 0;
+                (count, inc) = (0, 0);
               break;
             }
         }
         
         storage.count = count;
+        storage.inc = inc;
       }
 
       for (int i = 0; i < stationIds.Count; i++)
@@ -1255,24 +1281,30 @@ namespace DysonSphereProgram.Modding.Blackbox
     private void LogStationEntryExit(StationEntryExitRecordAction recordAction)
     {
       var profilingData = profilingTsData.LevelEntryOffset(0, profilingTick).Slice(stationOffset, stationSize);
+      var stationData = MemoryMarshal.Cast<int, StationEntryExit>(profilingData);
       var stationPool = simulationFactory.transport.stationPool;
-      for (int i = 0; i < stationSize; i++)
+      for (int i = 0; i < stationStorages.Length; i++)
       {
         ref var ss = ref stationStorages[i];
         ref var storage = ref stationPool[ss.stationId].storage[ss.storageIdx];
+        ref var data = ref stationData[i];
         switch (recordAction)
         {
           case StationEntryExitRecordAction.EntryBefore:
-            profilingData[i] = storage.count;
+            data.EntryCount = storage.count;
+            data.EntryInc = storage.inc;
             break;
           case StationEntryExitRecordAction.EntryAfter:
-            profilingData[i] -= storage.count;
+            data.EntryCount = storage.count - data.EntryCount;
+            data.EntryInc = storage.inc - data.EntryInc;
             break;
           case StationEntryExitRecordAction.ExitBefore:
-            profilingData[i] += storage.count;
+            data.ExitCount = storage.count;
+            data.ExitInc = storage.inc;
             break;
           case StationEntryExitRecordAction.ExitAfter:
-            profilingData[i] -= storage.count;
+            data.ExitCount = data.ExitCount - storage.count;
+            data.ExitInc = data.ExitInc - storage.inc;
             break;
         }
       }
