@@ -3,6 +3,7 @@ using System.IO;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using UnityEngine;
 using HarmonyLib;
 
@@ -21,6 +22,9 @@ namespace DysonSphereProgram.Modding.Blackbox
 
     Dictionary<int, Dictionary<int, CNT>> parsedInputs;
     Dictionary<int, Dictionary<int, CNTINC>> parsedOutputs;
+
+    Dictionary<int, Dictionary<int, CNT>> bufferInputs;
+    Dictionary<int, Dictionary<int, CNTINC>> bufferOutputs;
 
     long[] idleEnergyRestore;
     long[] workEnergyRestore;
@@ -50,6 +54,8 @@ namespace DysonSphereProgram.Modding.Blackbox
 
       parsedInputs = new Dictionary<int, Dictionary<int, CNT>>();
       parsedOutputs = new Dictionary<int, Dictionary<int, CNTINC>>();
+      bufferInputs = new Dictionary<int, Dictionary<int, CNT>>();
+      bufferOutputs = new Dictionary<int, Dictionary<int, CNTINC>>();
 
       // WARNING: This will break once Fingerprint (and thereby Recipe) is selection-independent
       // TODO: Figure out a proper way to relate Selection, Fingerprint and Recipe
@@ -60,7 +66,10 @@ namespace DysonSphereProgram.Modding.Blackbox
         
         var stationId = stationIds[station.Key];
         if (!parsedInputs.ContainsKey(stationId))
+        {
           parsedInputs[stationId] = new Dictionary<int, CNT>();
+          bufferInputs[stationId] = new Dictionary<int, CNT>();
+        }
         var stationStorage = factory.transport.stationPool[stationId].storage;
         foreach (var stationItemProduction in station.Value)
         {
@@ -68,6 +77,7 @@ namespace DysonSphereProgram.Modding.Blackbox
             if (stationStorage[j].itemId == stationItemProduction.Key)
             {
               parsedInputs[stationId][j] = stationItemProduction.Value;
+              bufferInputs[stationId][j] = new CNT { count = 0 };
               break;
             }
         }
@@ -77,7 +87,10 @@ namespace DysonSphereProgram.Modding.Blackbox
       {
         var stationId = stationIds[station.Key];
         if (!parsedOutputs.ContainsKey(stationId))
+        {
           parsedOutputs[stationId] = new Dictionary<int, CNTINC>();
+          bufferOutputs[stationId] = new Dictionary<int, CNTINC>();
+        }
         var stationStorage = factory.transport.stationPool[stationId].storage;
         foreach (var stationItemRequirement in station.Value)
         {
@@ -85,6 +98,7 @@ namespace DysonSphereProgram.Modding.Blackbox
             if (stationStorage[j].itemId == stationItemRequirement.Key)
             {
               parsedOutputs[stationId][j] = stationItemRequirement.Value;
+              bufferOutputs[stationId][j] = new CNTINC { count = 0, inc = 0 };
               break;
             }
         }
@@ -98,6 +112,8 @@ namespace DysonSphereProgram.Modding.Blackbox
     {
       parsedInputs = null;
       parsedOutputs = null;
+      bufferInputs = null;
+      bufferOutputs = null;
 
       idleEnergyRestore = null;
       workEnergyRestore = null;
@@ -285,42 +301,52 @@ namespace DysonSphereProgram.Modding.Blackbox
         return;
       }
 
+      var stationPool = factory.transport.stationPool;
       var totalTimeSpend = (float)blackbox.Recipe.timeSpend;
       var curPercent = timeIdx / totalTimeSpend;
 
-      // WARNING: This will break once Fingerprint (and thereby Recipe) is selection-independent
-      // TODO: Figure out a proper way to relate Selection, Fingerprint and Recipe
-      var stationIds = blackbox.Selection.stationIds;
-
-      foreach (var station in blackbox.Recipe.inputs)
+      foreach (var (stationId, inputRequirements) in parsedInputs)
       {
-        var stationId = stationIds[station.Key];
-        var stationEntityId = factory.transport.stationPool[stationId].entityId;
-        foreach (var stationItemRequirement in station.Value)
+        foreach (var (storageIdx, required) in inputRequirements)
         {
-          var itemId = stationItemRequirement.Key;
-          var count = stationItemRequirement.Value.count;
+          ref var storage = ref stationPool[stationId].storage[storageIdx];
 
-          var consumedCount = (int)curPercent * count;
-          var countToReturn = count - consumedCount;
+          if (timeIdx != 0)
+          {
+            var count = required.count;
 
-          GameMain.mainPlayer.TryAddItemToPackage(itemId, countToReturn, 0, true /*, stationEntityId */);
+            var consumedCount = (int)(curPercent * count);
+            var countToReturn = count - consumedCount;
+
+            storage.count += countToReturn;
+          }
+
+          var buffer = bufferInputs[stationId][storageIdx];
+          storage.count += buffer.count;
+          bufferInputs[stationId][storageIdx] = new CNT { count = 0 };
         }
       }
 
-      foreach (var station in blackbox.Recipe.outputs)
+      foreach (var (stationId, outputProduction) in parsedOutputs)
       {
-        var stationId = stationIds[station.Key];
-        var stationEntityId = factory.transport.stationPool[stationId].entityId;
-        foreach (var stationItemProduction in station.Value)
+        foreach (var (storageIdx, produced) in outputProduction)
         {
-          var itemId = stationItemProduction.Key;
-          var (count, inc) = stationItemProduction.Value;
+          ref var storage = ref stationPool[stationId].storage[storageIdx];
 
-          var producedCount = (int)curPercent * count;
-          var producedInc = (int)curPercent * inc;
+          if (timeIdx != 0)
+          {
+            var (count, inc) = produced;
 
-          GameMain.mainPlayer.TryAddItemToPackage(itemId, producedCount, producedInc, true /*, stationEntityId */);
+            var (_, _, producedCount, producedInc) = split_inc(count, inc, (int)(curPercent * count));
+
+            storage.count += producedCount;
+            storage.inc += producedInc;
+          }
+
+          var buffer = bufferOutputs[stationId][storageIdx];
+          storage.count += buffer.count;
+          storage.inc += buffer.inc;
+          bufferOutputs[stationId][storageIdx] = new CNTINC { count = 0, inc = 0 };
         }
       }
     }
@@ -337,6 +363,19 @@ namespace DysonSphereProgram.Modding.Blackbox
       TakeBackUnusedItems();
       ReleaseBlackboxingResources();
     }
+    
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static (int remainingCount, int remainingInc, int splitCount, int splitInc) split_inc(in int mainCount, in int mainInc, in int splitCount)
+    {
+      if (mainCount == 0)
+        return (0, 0, 0, 0);
+      int q = mainInc / mainCount;
+      int r = mainInc % mainCount;
+      int remainingCount = mainCount - splitCount;
+      int leftOverInc = (r > remainingCount) ? r - remainingCount : 0;
+      int splitInc = q * splitCount + leftOverInc;
+      return (remainingCount, mainInc - splitInc, splitCount, splitInc);
+    }
 
     public void Simulate()
     {
@@ -351,28 +390,62 @@ namespace DysonSphereProgram.Modding.Blackbox
 
       // Set the power consumption for the previous tick
       factory.powerSystem.consumerPool[blackbox.Selection.pcIds[0]].SetRequiredEnergy(isWorking);
+      
+      var insufficientInput = false;
+      var outputStacking = false;
+      var stationPool = factory.transport.stationPool;
+
+      // Move to internal input buffer
+      foreach (var (stationId, inputRequirement) in parsedInputs)
+      {
+        foreach (var (storageIdx, required) in inputRequirement)
+        {
+          ref var storage = ref stationPool[stationId].storage[storageIdx];
+          var bufferCount = bufferInputs[stationId][storageIdx].count;
+          var neededCount = required.count - bufferCount;
+          var transferCount = storage.count > neededCount ? neededCount : storage.count;
+          (storage.count, storage.inc, _, _) = split_inc(storage.count, storage.inc, transferCount);
+          bufferInputs[stationId][storageIdx] = new CNT { count = bufferCount + transferCount };
+          if (bufferInputs[stationId][storageIdx].count < required.count)
+            insufficientInput = true;
+        }
+      }
+      
+      // Move to internal output buffer
+      foreach (var (stationId, outputProduction) in parsedOutputs)
+      {
+        foreach (var (storageIdx, _) in outputProduction)
+        {
+          if (bufferOutputs[stationId][storageIdx].count <= 0)
+            continue;
+          ref var storage = ref stationPool[stationId].storage[storageIdx];
+          var availableStorage = storage.max - storage.count;
+          var buffer = bufferOutputs[stationId][storageIdx];
+          var transferCount = buffer.count > availableStorage ? availableStorage : buffer.count;
+          (buffer.count, buffer.inc, _, int transferInc) = split_inc(buffer.count, buffer.inc, transferCount);
+          storage.count += transferCount;
+          storage.inc += transferInc;
+          bufferOutputs[stationId][storageIdx] = buffer;
+          if (bufferOutputs[stationId][storageIdx].count > 0)
+            outputStacking = true;
+        }
+      }
 
       if (timeIdx == 0)
       {
         // Check if we can simulate a cycle. Else return and wait till we can.
-        foreach (var (stationId, inputRequirement) in parsedInputs)
+        if (insufficientInput)
         {
-          foreach (var (storageIdx, required) in inputRequirement)
-          {
-            if (factory.transport.stationPool[stationId].storage[storageIdx].count < required.count)
-            {
-              isWorking = false;
-              return;
-            }
-          }
+          isWorking = false;
+          return;
         }
 
         // Remove items and begin the cycle
         foreach (var (stationId, inputRequirement) in parsedInputs)
         {
-          foreach (var (storageIdx, required) in inputRequirement)
+          foreach (var (storageIdx, _) in inputRequirement)
           {
-            factory.transport.stationPool[stationId].storage[storageIdx].count -= required.count;
+            bufferInputs[stationId][storageIdx] = new CNT { count = 0 };
           }
         }
       }
@@ -384,26 +457,17 @@ namespace DysonSphereProgram.Modding.Blackbox
       {
         // Check if stations can handle the outputs.
         // Else don't make any progress
-        foreach (var (stationId, outputProduction) in parsedOutputs)
+        if (outputStacking)
         {
-          foreach (var (storageIdx, produced) in outputProduction)
-          {
-            ref var stationStorage = ref factory.transport.stationPool[stationId].storage[storageIdx];
-            if (stationStorage.max < stationStorage.count + produced.count)
-            {
-              isWorking = false;
-              return;
-            }
-          }
+          isWorking = false;
+          return;
         }
 
         foreach (var (stationId, outputProduction) in parsedOutputs)
         {
           foreach (var (storageIdx, produced) in outputProduction)
           {
-            ref var stationStorage = ref factory.transport.stationPool[stationId].storage[storageIdx];
-            stationStorage.count += produced.count;
-            stationStorage.inc += produced.inc;
+            bufferOutputs[stationId][storageIdx] = produced;
           }
         }
 
@@ -439,7 +503,7 @@ namespace DysonSphereProgram.Modding.Blackbox
       timeIdx = (timeIdx + 1) % Recipe.timeSpend;
     }
 
-    const int saveLogicVersion = 1;
+    const int saveLogicVersion = 2;
 
     public void PreserveVanillaSaveBefore()
     {
@@ -462,6 +526,31 @@ namespace DysonSphereProgram.Modding.Blackbox
       w.Write(isBlackboxSimulating);
       w.Write(timeIdx);
       w.Write(isWorking);
+      
+      w.Write(bufferInputs.Count);
+      foreach (var (stationId, storages) in bufferInputs)
+      {
+        w.Write(stationId);
+        w.Write(storages.Count);
+        foreach (var (storageIdx, inputBuffer) in storages)
+        {
+          w.Write(storageIdx);
+          w.Write(inputBuffer.count);
+        }
+      }
+      
+      w.Write(bufferOutputs.Count);
+      foreach (var (stationId, storages) in bufferOutputs)
+      {
+        w.Write(stationId);
+        w.Write(storages.Count);
+        foreach (var (storageIdx, outputBuffer) in storages)
+        {
+          w.Write(storageIdx);
+          w.Write(outputBuffer.count);
+          w.Write(outputBuffer.inc);
+        }
+      }
     }
 
     public void Import(BinaryReader r)
@@ -470,6 +559,35 @@ namespace DysonSphereProgram.Modding.Blackbox
       isBlackboxSimulating = r.ReadBoolean();
       timeIdx = r.ReadInt32();
       isWorking = r.ReadBoolean();
+      if (saveLogicVersion >= 2)
+      {
+        var inputsCount = r.ReadInt32();
+        for (int i = 0; i < inputsCount; i++)
+        {
+          var stationId = r.ReadInt32();
+          var storagesCount = r.ReadInt32();
+          for (int j = 0; j < storagesCount; j++)
+          {
+            var storageIdx = r.ReadInt32();
+            var count = r.ReadInt32();
+            bufferInputs[stationId][storageIdx] = new CNT { count = count };
+          }
+        }
+        
+        var outputsCount = r.ReadInt32();
+        for (int i = 0; i < outputsCount; i++)
+        {
+          var stationId = r.ReadInt32();
+          var storagesCount = r.ReadInt32();
+          for (int j = 0; j < storagesCount; j++)
+          {
+            var storageIdx = r.ReadInt32();
+            var count = r.ReadInt32();
+            var inc = r.ReadInt32();
+            bufferOutputs[stationId][storageIdx] = new CNTINC { count = count, inc = inc };
+          }
+        }
+      }
       PreserveVanillaSaveAfter();
     }
   }
