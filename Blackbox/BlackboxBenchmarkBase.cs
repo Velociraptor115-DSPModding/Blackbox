@@ -68,14 +68,14 @@ namespace DysonSphereProgram.Modding.Blackbox
       DoForRelevantBenchmarks(factory, actionAfterPowerConsumerComponents);
     }
 
-    private static readonly Action<BlackboxBenchmarkBase> actionAfterFactorySystem = b =>
+    private static readonly Action<BlackboxBenchmarkBase> actionBeforeStationBeltInput = b =>
     {
       b.AdjustStationStorageCount();
       b.LogStationBefore();
     };
-    public static void GameTick_AfterFactorySystem(PlanetFactory factory)
+    public static void GameTick_BeforeStationBeltInput(PlanetFactory factory)
     {
-      DoForRelevantBenchmarks(factory, actionAfterFactorySystem);
+      DoForRelevantBenchmarks(factory, actionBeforeStationBeltInput);
     }
 
     private static readonly Action<BlackboxBenchmarkBase> actionAfterStationBeltOutput = b =>
@@ -220,19 +220,11 @@ namespace DysonSphereProgram.Modding.Blackbox
         BlackboxGatewayMethods.GameTick_AfterPowerConsumerComponents(factory);
     }
 
-    [HarmonyPostfix]
-    [HarmonyPatch(typeof(FactorySystem), nameof(FactorySystem.GameTickLabProduceMode), typeof(long), typeof(bool))]
-    public static void FactorySystem__GameTickLabProduceMode(FactorySystem __instance)
-    {
-      BlackboxGatewayMethods.GameTick_AfterFactorySystem(__instance.factory);
-    }
-
     [HarmonyPrefix]
-    [HarmonyPatch(typeof(MultithreadSystem), nameof(MultithreadSystem.PrepareLabOutput2NextData))]
-    public static void MultithreadSystem__PrepareLabOutput2NextData(PlanetFactory[] _factories)
+    [HarmonyPatch(typeof(PlanetTransport), nameof(PlanetTransport.GameTick_InputFromBelt))]
+    public static void PlanetTransport__GameTick_InputFromBeltPrefix(PlanetTransport __instance)
     {
-      foreach (var factory in _factories)
-        BlackboxGatewayMethods.GameTick_AfterFactorySystem(factory);
+      BlackboxGatewayMethods.GameTick_BeforeStationBeltInput(__instance.factory);
     }
 
     [HarmonyPostfix]
