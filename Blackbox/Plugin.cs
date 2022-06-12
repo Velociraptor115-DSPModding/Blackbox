@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using BepInEx;
 using BepInEx.Logging;
@@ -75,7 +76,14 @@ namespace DysonSphereProgram.Modding.Blackbox
         if (player.factory == null)
           return;
 
-        var selection = BlackboxSelection.CreateFrom(player.factory, player.controller.actionBuild.blueprintCopyTool.selectedObjIds);
+        ICollection<int> consideredObjIds;
+        var inspectStationId = UIRoot.instance.uiGame.inspectStationId;
+        if (inspectStationId > 0)
+          consideredObjIds = new[] { player.factory.transport.stationPool[inspectStationId].entityId };
+        else
+          consideredObjIds = player.controller.actionBuild.blueprintCopyTool.selectedObjIds;
+
+        var selection = BlackboxSelection.CreateFrom(player.factory, consideredObjIds);
         if (selection.stationIds.Count <= 0)
           return;
 
