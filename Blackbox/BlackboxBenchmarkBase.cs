@@ -30,9 +30,10 @@ namespace DysonSphereProgram.Modding.Blackbox
 
     public virtual void AdjustStationStorageCount() { }
 
-    public virtual void LogStationBefore() { }
-
-    public virtual void LogStationAfter() { }
+    public virtual void LogStationEntryBefore() { }
+    public virtual void LogStationEntryAfter() { }
+    public virtual void LogStationExitBefore() { }
+    public virtual void LogStationExitAfter() { }
 
     public virtual void DoInserterAdaptiveStacking() { }
 
@@ -71,16 +72,33 @@ namespace DysonSphereProgram.Modding.Blackbox
     private static readonly Action<BlackboxBenchmarkBase> actionBeforeStationBeltInput = b =>
     {
       b.AdjustStationStorageCount();
-      b.LogStationBefore();
+      b.LogStationEntryBefore();
     };
     public static void GameTick_BeforeStationBeltInput(PlanetFactory factory)
     {
       DoForRelevantBenchmarks(factory, actionBeforeStationBeltInput);
     }
 
+    private static readonly Action<BlackboxBenchmarkBase> actionAfterStationBeltInput = b =>
+      b.LogStationEntryAfter();
+    public static void GameTick_AfterStationBeltInput(PlanetFactory factory)
+    {
+      DoForRelevantBenchmarks(factory, actionAfterStationBeltInput);
+    }
+
+    private static readonly Action<BlackboxBenchmarkBase> actionBeforeStationBeltOutput = b =>
+    {
+      b.AdjustStationStorageCount();
+      b.LogStationExitBefore();
+    };
+    public static void GameTick_BeforeStationBeltOutput(PlanetFactory factory)
+    {
+      DoForRelevantBenchmarks(factory, actionBeforeStationBeltOutput);
+    }
+
     private static readonly Action<BlackboxBenchmarkBase> actionAfterStationBeltOutput = b =>
     {
-      b.LogStationAfter();
+      b.LogStationExitAfter();
       b.DoInserterAdaptiveStacking();
     };
     public static void GameTick_AfterStationBeltOutput(PlanetFactory factory)
@@ -226,10 +244,24 @@ namespace DysonSphereProgram.Modding.Blackbox
     {
       BlackboxGatewayMethods.GameTick_BeforeStationBeltInput(__instance.factory);
     }
+    
+    [HarmonyPostfix]
+    [HarmonyPatch(typeof(PlanetTransport), nameof(PlanetTransport.GameTick_InputFromBelt))]
+    public static void PlanetTransport__GameTick_InputFromBeltPostfix(PlanetTransport __instance)
+    {
+      BlackboxGatewayMethods.GameTick_AfterStationBeltInput(__instance.factory);
+    }
+
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(PlanetTransport), nameof(PlanetTransport.GameTick_OutputToBelt))]
+    public static void PlanetTransport__GameTick_OutputToBeltPrefix(PlanetTransport __instance)
+    {
+      BlackboxGatewayMethods.GameTick_BeforeStationBeltOutput(__instance.factory);
+    }
 
     [HarmonyPostfix]
     [HarmonyPatch(typeof(PlanetTransport), nameof(PlanetTransport.GameTick_OutputToBelt))]
-    public static void PlanetTransport__GameTick_OutputToBelt(PlanetTransport __instance)
+    public static void PlanetTransport__GameTick_OutputToBeltPostfix(PlanetTransport __instance)
     {
       BlackboxGatewayMethods.GameTick_AfterStationBeltOutput(__instance.factory);
     }

@@ -1224,25 +1224,57 @@ namespace DysonSphereProgram.Modding.Blackbox
         stationPool[stationIds[i]].UpdateNeeds();
     }
 
-    public override void LogStationBefore()
+    public override void LogStationEntryBefore()
     {
-      var profilingData = profilingTsData.LevelEntryOffset(0, profilingTick).Slice(stationOffset, stationSize);
-      for (int i = 0; i < stationSize; i++)
-      {
-        var stationId = stationStorages[i].stationId;
-        var storageIdx = stationStorages[i].storageIdx;
-        profilingData[i] = simulationFactory.transport.stationPool[stationId].storage[storageIdx].count;
-      }
+      LogStationEntryExit(StationEntryExitRecordAction.EntryBefore);
     }
 
-    public override void LogStationAfter()
+    public override void LogStationEntryAfter()
+    {
+      LogStationEntryExit(StationEntryExitRecordAction.EntryAfter);
+    }
+    
+    public override void LogStationExitBefore()
+    {
+      LogStationEntryExit(StationEntryExitRecordAction.ExitBefore);
+    }
+
+    public override void LogStationExitAfter()
+    {
+      LogStationEntryExit(StationEntryExitRecordAction.ExitAfter);
+    }
+    
+    private enum StationEntryExitRecordAction
+    {
+      EntryBefore,
+      EntryAfter,
+      ExitBefore,
+      ExitAfter
+    }
+
+    private void LogStationEntryExit(StationEntryExitRecordAction recordAction)
     {
       var profilingData = profilingTsData.LevelEntryOffset(0, profilingTick).Slice(stationOffset, stationSize);
+      var stationPool = simulationFactory.transport.stationPool;
       for (int i = 0; i < stationSize; i++)
       {
-        var stationId = stationStorages[i].stationId;
-        var storageIdx = stationStorages[i].storageIdx;
-        profilingData[i] -= simulationFactory.transport.stationPool[stationId].storage[storageIdx].count;
+        ref var ss = ref stationStorages[i];
+        ref var storage = ref stationPool[ss.stationId].storage[ss.storageIdx];
+        switch (recordAction)
+        {
+          case StationEntryExitRecordAction.EntryBefore:
+            profilingData[i] = storage.count;
+            break;
+          case StationEntryExitRecordAction.EntryAfter:
+            profilingData[i] -= storage.count;
+            break;
+          case StationEntryExitRecordAction.ExitBefore:
+            profilingData[i] += storage.count;
+            break;
+          case StationEntryExitRecordAction.ExitAfter:
+            profilingData[i] -= storage.count;
+            break;
+        }
       }
     }
 

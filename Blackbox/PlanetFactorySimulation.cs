@@ -274,9 +274,6 @@ namespace DysonSphereProgram.Modding.Blackbox
           }
         }
 
-        benchmark.AdjustStationStorageCount();
-        benchmark.LogStationBefore();
-
         for (int i = 0; i < benchmark.labIds.Count; i++)
         {
           var labId = benchmark.labIds[i];
@@ -287,10 +284,14 @@ namespace DysonSphereProgram.Modding.Blackbox
             lab.UpdateOutputToNext(factory.factorySystem.labPool);
         }
 
+        benchmark.AdjustStationStorageCount();
+        benchmark.LogStationEntryBefore();
         // TODO: Station input from belt
         // TODO: This makes use of factory.entitySignPool
         //   DONE
         factory.transport.GameTick_InputFromBelt();
+        
+        benchmark.LogStationEntryAfter();
 
         // TODO: Inserter game tick
         // TODO: Check the usage of factory's 'InsertInto' and 'PickFrom'
@@ -340,11 +341,13 @@ namespace DysonSphereProgram.Modding.Blackbox
           piler.InternalUpdate(factory.cargoTraffic, factory.entityAnimPool, out _);
         }
 
+        benchmark.AdjustStationStorageCount();
+        benchmark.LogStationExitBefore();
         // TODO: Station output to belt
         // TODO: This makes use of factory.entitySignPool
         factory.transport.GameTick_OutputToBelt();
 
-        benchmark.LogStationAfter();
+        benchmark.LogStationExitAfter();
         benchmark.DoInserterAdaptiveStacking();
 
         benchmark.EndGameTick();
