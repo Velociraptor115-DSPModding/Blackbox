@@ -143,20 +143,24 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
     [HarmonyPatch(typeof(WarningSystem), nameof(WarningSystem.WarningLogic))]
     static void WarningSystem__WarningLogic(ref WarningSystem __instance)
     {
+      var alreadyHighlighting = __instance.warningCounts[BlackboxHighlight.blackboxSignalId] > 0; 
       var highlight = BlackboxManager.Instance.highlight;
       if (highlight.blackboxId > 0)
       {
         var warningPool = __instance.warningPool;
         foreach (var warningId in highlight.warningIds)
         {
-          warningPool[warningId].state = 1;
-          warningPool[warningId].signalId = BlackboxHighlight.blackboxSignalId;
+          ref var warning = ref warningPool[warningId];
+          warning.state = 1;
+          warning.signalId = BlackboxHighlight.blackboxSignalId;
+          if (warning.detailId == 0)
+            warning.detailId = __instance.tmpEntityPools[warning.factoryId][warning.objectId].protoId;
 
           __instance.warningCounts[BlackboxHighlight.blackboxSignalId]++;
         }
       }
 
-      if (__instance.warningCounts[BlackboxHighlight.blackboxSignalId] > 0)
+      if (!alreadyHighlighting && __instance.warningCounts[BlackboxHighlight.blackboxSignalId] > 0)
       {
         __instance.warningSignals[__instance.warningSignalCount] = BlackboxHighlight.blackboxSignalId;
         __instance.warningSignalCount++;
