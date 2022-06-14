@@ -326,6 +326,9 @@ namespace DysonSphereProgram.Modding.Blackbox
 
       ref readonly var entity = ref factory.entityPool[entityId];
 
+      if (entity.minerId > 0)
+        return true;
+
       if (entity.beltId > 0)
         return false;
 
