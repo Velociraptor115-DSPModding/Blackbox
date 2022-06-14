@@ -37,7 +37,7 @@ public static class BlackboxUtils
       
     var blackbox =
       stationId > 0
-        ? BlackboxManager.Instance.blackboxes.Find(x => x.Selection.stationIds.Contains(stationId))
+        ? BlackboxManager.Instance.blackboxes.Find(x => x.Selection.stationIds.Contains(stationId) && x.FactoryIndex == factory.index)
         : BlackboxManager.Instance.blackboxes.Find(x => x.Id == blackboxId);
     
     return blackbox;
