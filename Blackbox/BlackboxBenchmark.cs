@@ -106,10 +106,16 @@ namespace DysonSphereProgram.Modding.Blackbox
 
     public static int analysisVerificationCountConfig = 4;
     public static int analysisDurationMultiplierConfig = 3;
-    public static float averagingThresholdConfig = 0.0001f;
+    public static float averagingThresholdPcConfig = 0.0001f;
+    public static float averagingThresholdItemStatsConfig = 0.0001f;
+    public static float stabilityDetectionThresholdConfig = 0;
+    public static bool useItemSaturationPhaseConfig = false;
     public int analysisVerificationCount ;
     public int analysisDurationMultiplier;
-    public float averagingThreshold;
+    public float averagingThresholdPc;
+    public float averagingThresholdItemStats;
+    public float stabilityDetectionThreshold;
+    public bool useItemSaturationPhase;
     int timeSpendGCD;
     int timeSpendLCM;
     int timeSpendMaxIndividual;
@@ -251,7 +257,10 @@ namespace DysonSphereProgram.Modding.Blackbox
 
       this.analysisVerificationCount = analysisVerificationCountConfig;
       this.analysisDurationMultiplier = analysisDurationMultiplierConfig;
-      this.averagingThreshold = averagingThresholdConfig;
+      this.averagingThresholdPc = averagingThresholdPcConfig;
+      this.averagingThresholdItemStats = averagingThresholdItemStatsConfig;
+      this.stabilityDetectionThreshold = stabilityDetectionThresholdConfig;
+      this.useItemSaturationPhase = useItemSaturationPhaseConfig;
       this.shouldOverrideCycleLength = shouldOverrideCycleLengthConfig;
       this.overrideCycleLength = overrideCycleLengthConfig;
 
@@ -273,7 +282,11 @@ namespace DysonSphereProgram.Modding.Blackbox
       this.cycleDetectionData = new int[this.perTickProfilingSize * 2];
       this.stabilityDetectionData = new int[this.statsDiffSize];
       profilingTick = 0;
-      phase = spraycoaterIds.Count > 0 ? BenchmarkPhase.SpraySaturation : BenchmarkPhase.ItemSaturation;
+      phase = spraycoaterIds.Count > 0
+        ? BenchmarkPhase.SpraySaturation
+        : useItemSaturationPhase
+          ? BenchmarkPhase.ItemSaturation
+          : BenchmarkPhase.Benchmarking;
 
       averagingDataSize = pcSize + stationSize + factoryStatsSize;
       averagingDataRaw = new long[averagingDataSize];
@@ -600,6 +613,32 @@ namespace DysonSphereProgram.Modding.Blackbox
         stabilityDetectionData[i] = value;
     }
 
+    private enum StabilityDetectionAction
+    {
+      Max,
+      Min
+    }
+
+    private void CheckStabilization_V2(StabilityDetectionAction action)
+    {
+      var entrySpan = profilingTsData.LevelEntryOffset(0, profilingTick);
+      var totalStatsDiffSpan = entrySpan.Slice(statsDiffOffset, statsDiffSize);
+
+      for (int i = 0; i < totalStatsDiffSpan.Length; i++)
+      {
+        var diff =
+          action == StabilityDetectionAction.Max
+            ? totalStatsDiffSpan[i] - stabilityDetectionData[i]
+            : stabilityDetectionData[i] - totalStatsDiffSpan[i];
+        var threshold = (int)(Math.Abs(stabilityDetectionData[i]) * stabilityDetectionThreshold);
+        if (diff > threshold)
+        {
+          this.stabilizedTick = this.profilingTick;
+          stabilityDetectionData[i] = totalStatsDiffSpan[i];
+        }
+      }
+    }
+
     private void CheckStabilization_Max()
     {
       var entrySpan = profilingTsData.LevelEntryOffset(0, profilingTick);
@@ -767,7 +806,7 @@ namespace DysonSphereProgram.Modding.Blackbox
       }
       if (profilingTick >= spraySaturationTick * 2)
       {
-        phase = BenchmarkPhase.ItemSaturation;
+        phase = useItemSaturationPhase ? BenchmarkPhase.ItemSaturation : BenchmarkPhase.Benchmarking;
         profilingTick = 0;
         ClearItemStats();
       }
@@ -867,7 +906,7 @@ namespace DysonSphereProgram.Modding.Blackbox
     {
       LogItemStats();
       LogTotalItemStats();
-      CheckStabilization_Min();
+      CheckStabilization_V2(useItemSaturationPhase ? StabilityDetectionAction.Min : StabilityDetectionAction.Max);
       profilingTsData.SummarizeAtHigherGranularity(profilingTick);
       if (continuousLogging && (profilingTick + 1) % timeSpendGCD == 0)  WriteContinuousLoggingData(1);
       profilingTick += 1;
@@ -985,14 +1024,15 @@ namespace DysonSphereProgram.Modding.Blackbox
             // averagingStatsFactoryStatsData[i / 2].Consumed = (int)Math.Ceiling(value);
             averagingStatsFactoryStatsData[i / 2].Consumed = (int)Math.Round(value);
         }
-        
-        Plugin.Log.LogDebug(averagingRawPcData[0]);
-        Plugin.Log.LogDebug(averagingStatsPcData[0]);
 
         averagingDataStatsIdx++;
 
         var stable = true;
         double maxRatio = 0;
+        long instablePcCur = 0;
+        long instablePcPrev = 0;
+        int instableStatsCur = 0;
+        int instableStatsPrev = 0;
         for (int i = 0; stable && i < analysisVerificationCount; i++)
         {
           var averagingSpanEach = new Span<int>(averagingDataStats, i * averagingDataSize, averagingDataSize);
@@ -1000,13 +1040,17 @@ namespace DysonSphereProgram.Modding.Blackbox
           for (int j = 0; j < pcCount; j++)
           {
             var diff = Math.Abs(averagingStatsPcData[j] - averagingSpanEachPcData[j]);
-            var threshold = averagingStatsPcData[j] * averagingThreshold;
+            var threshold = averagingStatsPcData[j] * averagingThresholdPc;
             if (diff > (long)threshold)
             {
               stable = false;
               var ratio = diff / threshold;
               if (ratio > maxRatio)
+              {
                 maxRatio = ratio;
+                instablePcCur = averagingStatsPcData[j];
+                instablePcPrev = averagingSpanEachPcData[j];
+              }
             }
           }
             
@@ -1016,13 +1060,17 @@ namespace DysonSphereProgram.Modding.Blackbox
           for (int j = 0; j < stationSize + factoryStatsSize; j++)
           {
             var diff = Math.Abs(averagingSpanItemStats[j] - averagingSpanEachItemStats[j]);
-            var threshold = (int)(averagingSpanItemStats[j] * averagingThreshold);
-            if (diff > threshold)
+            var threshold = averagingSpanItemStats[j] * averagingThresholdItemStats;
+            if (diff > (int)threshold)
             {
               stable = false;
-              var ratio = diff / (averagingSpanItemStats[j] * averagingThreshold);
+              var ratio = diff / threshold;
               if (ratio > maxRatio)
+              {
                 maxRatio = ratio;
+                instableStatsCur = averagingSpanItemStats[j];
+                instableStatsPrev = averagingSpanEachItemStats[j];
+              }
             }
           }
         }
@@ -1036,6 +1084,16 @@ namespace DysonSphereProgram.Modding.Blackbox
         else
         {
           Plugin.Log.LogDebug("Deviation: " + maxRatio);
+          if (instablePcCur > 0)
+          {
+            Plugin.Log.LogDebug("Cur Pc : " + instablePcCur);
+            Plugin.Log.LogDebug("Prev Pc: " + instablePcPrev);
+          }
+          if (instableStatsCur > 0)
+          {
+            Plugin.Log.LogDebug("Cur Pc : " + instableStatsCur);
+            Plugin.Log.LogDebug("Prev Pc: " + instableStatsPrev);
+          }
         }
       }
       // if (profilingTick >= totalTicks)

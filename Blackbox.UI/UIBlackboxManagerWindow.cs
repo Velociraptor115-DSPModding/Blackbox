@@ -1,8 +1,10 @@
+using System;
 using System.Collections.Generic;
 using DysonSphereProgram.Modding.Blackbox.UI.Builder;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.Events;
+using Object = UnityEngine.Object;
 
 namespace DysonSphereProgram.Modding.Blackbox.UI
 {
@@ -127,6 +129,8 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
     public GameObject GameObject => gameObject;
 
     object IModdedUI.Component => uiBlackboxManagerWindow;
+
+    private static readonly float epsilon = (float)Math.Pow(2, -32);
 
     public void CreateUI()
     {
@@ -329,7 +333,7 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
           ;
 
         var minusBtn =
-            Create.Button("btn-minus", UIBuilder.stringFullMinus, () => binding.Value--)
+            Create.Button("btn-minus", UIBuilder.stringFullMinus, () => binding.Value = Mathf.Clamp(binding.Value - 1, minValue, maxValue))
               .WithLayoutSize(30, 30)
               .WithVisuals((IProperties<Image>)UIBuilder.buttonImgProperties)
           ;
@@ -344,7 +348,76 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
           ;
 
         var plusBtn =
-            Create.Button("btn-plus", UIBuilder.stringFullPlus, () => binding.Value++)
+            Create.Button("btn-plus", UIBuilder.stringFullPlus, () => binding.Value = Mathf.Clamp(binding.Value + 1, minValue, maxValue))
+              .WithLayoutSize(30, 30)
+              .WithVisuals((IProperties<Image>)UIBuilder.buttonImgProperties)
+          ;
+
+        return new [] { slider.transform, minusBtn.transform, inputField.transform, plusBtn.transform };
+      }
+
+      const string FixedFloatFormat = "0.##";
+      const string LogFloatFormat = "0.#########";
+      static RectTransform[] CreateSliderFloat(DataBindSourceBase<float, float> binding, float minValue = 0, float maxValue = 1)
+      {
+        var sliderConfig = new SliderConfiguration(minValue, maxValue);
+        var slider =
+            Create.Slider("slider", sliderConfig)
+              .WithLayoutSize(200, 12)
+              .Bind(binding)
+          ;
+
+        var minusBtn =
+            Create.Button("btn-minus", UIBuilder.stringFullMinus, () => binding.Value = Mathf.Clamp(binding.Value - 0.01f, minValue, maxValue))
+              .WithLayoutSize(30, 30)
+              .WithVisuals((IProperties<Image>)UIBuilder.buttonImgProperties)
+          ;
+
+        var inputField =
+            Create.InputField("input-field")
+              .WithLayoutSize(80, 30)
+              .WithContentType(InputField.ContentType.DecimalNumber)
+              .WithFont(UIBuilder.fontSAIRAR)
+              .WithFontSize(16)
+              .Bind(binding.WithTransform(x => (x * 100).ToString(FixedFloatFormat), x => float.Parse(x) / 100f))
+          ;
+
+        var plusBtn =
+            Create.Button("btn-plus", UIBuilder.stringFullPlus, () => binding.Value = Mathf.Clamp(binding.Value + 0.01f, minValue, maxValue))
+              .WithLayoutSize(30, 30)
+              .WithVisuals((IProperties<Image>)UIBuilder.buttonImgProperties)
+          ;
+
+        return new [] { slider.transform, minusBtn.transform, inputField.transform, plusBtn.transform };
+      }
+      
+      const float twoPowMin32 = 2.3283064365386962890625E-10F;
+      static RectTransform[] CreateLogSlider(DataBindSourceBase<float, float> binding, float minValue = -32, float maxValue = 0)
+      {
+        var sliderConfig = new SliderConfiguration(minValue, maxValue);
+        var slider =
+            Create.Slider("slider", sliderConfig)
+              .WithLayoutSize(200, 12)
+              .Bind(binding.WithTransform(x => (float)Math.Log(x, 2), x => (float)Math.Pow(2, x)))
+          ;
+
+        var minusBtn =
+            Create.Button("btn-minus", UIBuilder.stringFullMinus, () => binding.Value = Mathf.Clamp(binding.Value / 2f, 0, 1))
+              .WithLayoutSize(30, 30)
+              .WithVisuals((IProperties<Image>)UIBuilder.buttonImgProperties)
+          ;
+
+        var inputField =
+            Create.InputField("input-field")
+              .WithLayoutSize(80, 30)
+              .WithContentType(InputField.ContentType.DecimalNumber)
+              .WithFont(UIBuilder.fontSAIRAR)
+              .WithFontSize(16)
+              .Bind(binding.WithTransform(x => (x * 100).ToString(LogFloatFormat), x => float.Parse(x) / 100f))
+          ;
+
+        var plusBtn =
+            Create.Button("btn-plus", UIBuilder.stringFullPlus, () => binding.Value = Mathf.Clamp(binding.Value * 2f, 0, 1))
               .WithLayoutSize(30, 30)
               .WithVisuals((IProperties<Image>)UIBuilder.buttonImgProperties)
           ;
@@ -435,6 +508,32 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
         value => BlackboxBenchmark.analysisDurationMultiplierConfig = value
       );
       CreateEntry(rootLayoutGroup, "Duration Multiplier", CreateSlider(analysisDurationMultiplier, 1, 20));
+      
+      var useItemSaturationPhase = new DelegateDataBindSource<bool>(
+        () => BlackboxBenchmark.useItemSaturationPhaseConfig,
+        value => BlackboxBenchmark.useItemSaturationPhaseConfig = value
+      );
+      CreateEntry(rootLayoutGroup, "Use Item Saturation Phase", CreateOnOffToggle(useItemSaturationPhase).transform);
+
+      CreateEntry(rootLayoutGroup, "Note: For thresholds, 0 -> strictest, takes longer and most accurate ; 100 -> most relaxed criteria, shortest and most inaccurate.");
+      
+      var stabilityDetectionThreshold = new DelegateDataBindSource<float>(
+        () => BlackboxBenchmark.stabilityDetectionThresholdConfig,
+        value => BlackboxBenchmark.stabilityDetectionThresholdConfig = value
+      );
+      CreateEntry(rootLayoutGroup, "Stability Threshold", CreateSliderFloat(stabilityDetectionThreshold));
+
+      var averagingThresholdPc = new DelegateDataBindSource<float>(
+        () => BlackboxBenchmark.averagingThresholdPcConfig,
+        value => BlackboxBenchmark.averagingThresholdPcConfig = value
+      );
+      CreateEntry(rootLayoutGroup, "Averaging Threshold (Power)", CreateLogSlider(averagingThresholdPc));
+      
+      var averagingThresholdItems = new DelegateDataBindSource<float>(
+        () => BlackboxBenchmark.averagingThresholdItemStatsConfig,
+        value => BlackboxBenchmark.averagingThresholdItemStatsConfig = value
+      );
+      CreateEntry(rootLayoutGroup, "Averaging Threshold (Items)", CreateLogSlider(averagingThresholdItems));
     }
     
     static void InitializeOverviewPanel(UIElementContext root)
