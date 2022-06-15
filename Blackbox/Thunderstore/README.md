@@ -3,20 +3,19 @@ This mod allows you to "blackbox" sets of buildings together to improve your UPS
 **WARNING**: This is an alpha release of the mod. Use at your own risk or if you would like to help support development of this mod  
 
 ## What's new in this update?
-* You can now also create a blackbox by simply selecting / inspecting a station without blueprint mode and pressing the keybind (default: Ctrl + N)
-* The blackbox selection now tries to ignore isolated segments of unblackboxable buildings such as power generators or storages without invalidating the entire blackbox. This also excludes warper belts from the blackbox.
-* Added hover highlight for blackboxes (Experimental)
-* Proliferated outputs at stations are now supported
-* Added internal input/output buffer to blackboxed stations - now blackboxes with huge recipes (like 30k iron ore) won't get stuck because stations can't hold all the inputs at once
+* You can now adjust the analysis thresholds to control how fast (but inaccurate) or slow (but more accurate) you want your blackbox analysis to be
 
 ## How to use this mod
 * First install the mod, and reboot the game.
-* Go into blueprint copy mode, select the input station(s) of your blackbox setup and press Ctrl + N  
+* Press Ctrl + N after either
+  * Selecting a station (the station window must have opened)
+  * In blueprint copy mode, select the input station(s) of your blackbox setup (not recommended any more, might possibly be deprecated in the future)  
 * Press Ctrl + M to open up the Blackbox Manager Panel to view the blackboxed
 * Use "Highlight" to view what buildings got grouped together as a blackbox
 * Settings
   * You can untick "Analyse in background thread" if you want to blackbox in game time and check your blackbox setup for inefficiencies. Note that analysing in background thread is anywhere between 10x - 1000x faster.
   * Use Cycle Length Override to specify the duration of the recipe - otherwise the automatic duration detection uses a very high duration and may delay the analysis
+  * You can also adjust the thresholds at the bottom if you want to control how accurate you want your blackbox to be
   * Ideally, you should not need to toggle any other setting below except for "Auto-blackbox" (I still recommend manual blackboxing at this stage, since the auto-blackbox algorithm goes through the stations in the order they were placed. The algorithm cannot discriminate between blackboxable and non-blackboxable setups without simulating them, so it will probably waste a lot of time on non-blackboxable setups)
   * The rest of the settings are currently for debugging purpose. You will only need to change them if you have been in contact with me on the DSP Discord
 
@@ -30,15 +29,21 @@ You are encouraged to contact me on the DSP Discord to provide feedback
 
 ## Roadmap
 
-* Provide configurable thresholds for analysis
-* Allow saturation phase to be skippable
+* ✅ Provide configurable thresholds for analysis
+* ✅ Allow item saturation phase to be skippable (defaults to skipping item saturation phase)
 * ✅ Maintain internal buffer for blackbox simulation
 * ✅ Support proliferated output
+* Basic fingerprinting support to allow for reuse of analysed recipes
+* Auto-blackbox QoL improvements
 * Complete blackbox insufficient power logic
 * Provide visual feedback regarding which item / recipe is preventing the setup from being blackboxable
 * Figure out static analysis logic (if possible)
 
 ## Changelog
+
+### [v0.2.0](https://dsp.thunderstore.io/package/Raptor/Blackbox/0.2.0/)
+* Fix a bug with blackbox inspect and hover highlight, that caused a blackbox on another planet to be selected if the station ID matches
+* Add configurable analysis thresholds 
 
 ### [v0.1.0](https://dsp.thunderstore.io/package/Raptor/Blackbox/0.1.0/)
 * Fix a [crash](https://github.com/Velociraptor115-DSPModding/Blackbox/issues/1) that occurred when trying to save the game after deleting a blackbox that was being highlighted
