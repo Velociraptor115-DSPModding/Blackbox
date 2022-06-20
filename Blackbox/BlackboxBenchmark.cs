@@ -1091,8 +1091,8 @@ namespace DysonSphereProgram.Modding.Blackbox
           }
           if (instableStatsCur > 0)
           {
-            Plugin.Log.LogDebug("Cur Pc : " + instableStatsCur);
-            Plugin.Log.LogDebug("Prev Pc: " + instableStatsPrev);
+            Plugin.Log.LogDebug("Cur Stats : " + instableStatsCur);
+            Plugin.Log.LogDebug("Prev Stats: " + instableStatsPrev);
           }
         }
       }
