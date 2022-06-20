@@ -1267,7 +1267,9 @@ namespace DysonSphereProgram.Modding.Blackbox
       for (int i = 0; i < stationStorages.Length; i++)
       {
         ref readonly var ss = ref stationStorages[i];
-        ref var storage = ref stationPool[ss.stationId].storage[ss.storageIdx];
+        var station = stationPool[ss.stationId];
+        var needs = station.needs;
+        ref var storage = ref station.storage[ss.storageIdx];
         var count = storage.count;
         var max = storage.max;
         var inc = storage.inc;
@@ -1278,26 +1280,23 @@ namespace DysonSphereProgram.Modding.Blackbox
           case BenchmarkPhase.SelfSpraySaturation:
             {
               if (ss.effectiveLogic == ELogisticStorage.Demand)
-                (count, inc) = (ss.isSpray ? max : 0, 0);
-              if (ss.effectiveLogic == ELogisticStorage.Supply)
-                (count, inc) = (max, 0);
+                (count, inc) = (ss.isSpray ? max / 2 : 0, 0);
+              needs[ss.storageIdx] = 0;
               break;
             }
           case BenchmarkPhase.ItemSaturation:
             {
               if (ss.effectiveLogic == ELogisticStorage.Demand)
-                (count, inc) = (max, 0);
-              if (ss.effectiveLogic == ELogisticStorage.Supply)
-                (count, inc) = (max, 0);
+                (count, inc) = (max / 2, 0);
+              needs[ss.storageIdx] = 0;
               break;
             }
           case BenchmarkPhase.Benchmarking:
           case BenchmarkPhase.Averaging:
             {
               if (ss.effectiveLogic == ELogisticStorage.Demand)
-                (count, inc) = (max, 0);
-              if (ss.effectiveLogic == ELogisticStorage.Supply)
-                (count, inc) = (0, 0);
+                (count, inc) = (max / 2, 0);
+              needs[ss.storageIdx] = storage.itemId;
               break;
             }
         }
@@ -1306,8 +1305,6 @@ namespace DysonSphereProgram.Modding.Blackbox
         storage.inc = inc;
       }
 
-      for (int i = 0; i < stationIds.Count; i++)
-        stationPool[stationIds[i]].UpdateNeeds();
     }
 
     public override void LogStationEntryBefore()
