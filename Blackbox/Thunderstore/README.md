@@ -3,7 +3,7 @@ This mod allows you to "blackbox" sets of buildings together to improve your UPS
 **WARNING**: This is an alpha release of the mod. Use at your own risk or if you would like to help support development of this mod  
 
 ## What's new in this update?
-* You can now adjust the analysis thresholds to control how fast (but inaccurate) or slow (but more accurate) you want your blackbox analysis to be
+* Bugfixes
 
 ## How to use this mod
 * First install the mod, and reboot the game.
@@ -40,6 +40,9 @@ You are encouraged to contact me on the DSP Discord to provide feedback
 * Figure out static analysis logic (if possible)
 
 ## Changelog
+
+### [v0.2.1](https://dsp.thunderstore.io/package/Raptor/Blackbox/0.2.1/)
+* Fix a [bug](https://github.com/Velociraptor115-DSPModding/Blackbox/issues/11) with blackboxing setups that had output belts from stations for items set to supply or input belts to stations for items set to demand
 
 ### [v0.2.0](https://dsp.thunderstore.io/package/Raptor/Blackbox/0.2.0/)
 * Fix a bug with blackbox inspect and hover highlight, that caused a blackbox on another planet to be selected if the station ID matches
