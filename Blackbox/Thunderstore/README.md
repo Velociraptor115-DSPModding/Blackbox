@@ -41,6 +41,9 @@ You are encouraged to contact me on the DSP Discord to provide feedback
 
 ## Changelog
 
+### [v0.2.2](https://dsp.thunderstore.io/package/Raptor/Blackbox/0.2.2/)
+* Fix a [crash](https://github.com/Velociraptor115-DSPModding/Blackbox/issues/12) that occurred when trying to delete prebuilds
+
 ### [v0.2.1](https://dsp.thunderstore.io/package/Raptor/Blackbox/0.2.1/)
 * Fix a [bug](https://github.com/Velociraptor115-DSPModding/Blackbox/issues/11) with blackboxing setups that had output belts from stations for items set to supply or input belts to stations for items set to demand
 
