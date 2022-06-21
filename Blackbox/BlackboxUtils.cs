@@ -28,6 +28,8 @@ public static class BlackboxUtils
 
   public static Blackbox QueryEntityForAssociatedBlackbox(PlanetFactory factory, int entityId)
   {
+    if (entityId <= 0)
+      return null;
     ref readonly var entity = ref factory.entityPool[entityId];
     var blackboxId = QueryBlackboxedEntityForBlackboxId(factory, in entity);
     var stationId = entity.stationId;
