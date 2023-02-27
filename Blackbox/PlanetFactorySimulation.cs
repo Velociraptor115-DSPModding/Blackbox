@@ -220,12 +220,14 @@ namespace DysonSphereProgram.Modding.Blackbox
     public static void SimulateGameTick(BlackboxBenchmark benchmark)
     {
       var factory = benchmark.simulationFactory;
-      if (factory.factorySystem != null)
+      var factorySystem = factory.factorySystem;
+      var cargoTraffic = factory.cargoTraffic;
+      if (factorySystem != null && cargoTraffic != null)
       {
         benchmark.BeginGameTick();
         
-        factory.factorySystem.GameTickBeforePower(0, false);
-        factory.cargoTraffic.GameTickBeforePower(0, false);
+        factorySystem.GameTickBeforePower(0, false);
+        cargoTraffic.GameTickBeforePower(0, false);
         benchmark.LogPowerConsumer();
 
         // TODO: Assembler game tick
@@ -234,7 +236,7 @@ namespace DysonSphereProgram.Modding.Blackbox
         {
           var assemblerId = benchmark.assemblerIds[i];
           // Do NOT use ref readonly here as it will not perform the updates
-          ref var assembler = ref factory.factorySystem.assemblerPool[assemblerId];
+          ref var assembler = ref factorySystem.assemblerPool[assemblerId];
 
           // Skipping the customary assembler.id == assemblerId check, since we'd have ideally vetted this beforehand
 
@@ -254,7 +256,7 @@ namespace DysonSphereProgram.Modding.Blackbox
         {
           var fractionatorId = benchmark.fractionatorIds[i];
           // Do NOT use ref readonly here as it will not perform the updates
-          ref var fractionator = ref factory.factorySystem.fractionatorPool[fractionatorId];
+          ref var fractionator = ref factorySystem.fractionatorPool[fractionatorId];
           fractionator.InternalUpdate(factory, 1f, factory.entitySignPool, benchmark.productRegister, benchmark.consumeRegister);
         }
 
@@ -264,7 +266,7 @@ namespace DysonSphereProgram.Modding.Blackbox
         {
           var labId = benchmark.labIds[i];
           // Do NOT use ref readonly here as it will not perform the updates
-          ref var lab = ref factory.factorySystem.labPool[labId];
+          ref var lab = ref factorySystem.labPool[labId];
 
           if (!lab.researchMode && lab.recipeId > 0)
           {
@@ -278,10 +280,10 @@ namespace DysonSphereProgram.Modding.Blackbox
         {
           var labId = benchmark.labIds[i];
           // Do NOT use ref readonly here as it will not perform the updates
-          ref var lab = ref factory.factorySystem.labPool[labId];
+          ref var lab = ref factorySystem.labPool[labId];
 
           if (lab.nextLabId > 0)
-            lab.UpdateOutputToNext(factory.factorySystem.labPool);
+            lab.UpdateOutputToNext(factorySystem.labPool);
         }
 
         benchmark.AdjustStationStorageCount();
@@ -289,7 +291,7 @@ namespace DysonSphereProgram.Modding.Blackbox
         // TODO: Station input from belt
         // TODO: This makes use of factory.entitySignPool
         //   DONE
-        factory.transport.GameTick_InputFromBelt();
+        factory.transport.GameTick_InputFromBelt(0);
         
         benchmark.LogStationEntryAfter();
 
@@ -299,7 +301,7 @@ namespace DysonSphereProgram.Modding.Blackbox
         for (int i = 0; i < benchmark.inserterIds.Count; i++)
         {
           var inserterId = benchmark.inserterIds[i];
-          ref var inserter = ref factory.factorySystem.inserterPool[inserterId];
+          ref var inserter = ref factorySystem.inserterPool[inserterId];
           inserter.InternalUpdateNoAnim(factory, factory.entityNeeds, 1);
         }
 
@@ -307,45 +309,39 @@ namespace DysonSphereProgram.Modding.Blackbox
         for (int i = 0; i < benchmark.cargoPathIds.Count; i++)
         {
           var cargoPathId = benchmark.cargoPathIds[i];
-          var cargoPath = factory.cargoTraffic.pathPool[cargoPathId];
+          var cargoPath = cargoTraffic.pathPool[cargoPathId];
           cargoPath.Update();
         }
         for (int i = 0; i < benchmark.splitterIds.Count; i++)
         {
           var splitterId = benchmark.splitterIds[i];
           // Do NOT use ref readonly here as it will not perform the updates
-          ref var splitter = ref factory.cargoTraffic.splitterPool[splitterId];
+          ref var splitter = ref cargoTraffic.splitterPool[splitterId];
           splitter.CheckPriorityPreset();
-          factory.cargoTraffic
-            .UpdateSplitter(
-              splitterId,
-              splitter.input0, splitter.input1, splitter.input2,
-              splitter.output0, splitter.output1, splitter.output2,
-              splitter.outFilter
-            );
+          cargoTraffic.UpdateSplitter(ref splitter, 0);
         }
 
         // TODO: Spraycoater game tick
         for (int i = 0; i < benchmark.spraycoaterIds.Count; i++)
         {
           var spraycoaterId = benchmark.spraycoaterIds[i];
-          ref var spraycoater = ref factory.cargoTraffic.spraycoaterPool[spraycoaterId];
-          spraycoater.InternalUpdate(factory.cargoTraffic, factory.entityAnimPool, benchmark.consumeRegister);
+          ref var spraycoater = ref cargoTraffic.spraycoaterPool[spraycoaterId];
+          spraycoater.InternalUpdate(cargoTraffic, factory.entityAnimPool, benchmark.consumeRegister);
         }
 
         // TODO: Piler game tick
         for (int i = 0; i < benchmark.pilerIds.Count; i++)
         {
           var pilerId = benchmark.pilerIds[i];
-          ref var piler = ref factory.cargoTraffic.pilerPool[pilerId];
-          piler.InternalUpdate(factory.cargoTraffic, factory.entityAnimPool, out _);
+          ref var piler = ref cargoTraffic.pilerPool[pilerId];
+          piler.InternalUpdate(cargoTraffic, factory.entityAnimPool, out _);
         }
 
         benchmark.AdjustStationStorageCount();
         benchmark.LogStationExitBefore();
         // TODO: Station output to belt
         // TODO: This makes use of factory.entitySignPool
-        factory.transport.GameTick_OutputToBelt();
+        factory.transport.GameTick_OutputToBelt(GameMain.history.stationPilerLevel, 0);
 
         benchmark.LogStationExitAfter();
         benchmark.DoInserterAdaptiveStacking();

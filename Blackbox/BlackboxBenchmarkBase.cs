@@ -154,20 +154,19 @@ namespace DysonSphereProgram.Modding.Blackbox
     }
 
     public static uint InterceptAssemblerInternalUpdate
-      (FactorySystem factorySystem, int assemblerId, float power, int[] productRegister, int[] consumeRegister)
+      (FactorySystem factorySystem, ref AssemblerComponent assembler, float power, int[] productRegister, int[] consumeRegister)
     {
       foreach (var benchmark in benchmarks)
       {
         if (benchmark.blackbox.Status != BlackboxStatus.InAnalysis)
           continue;
-        if (!benchmark.ShouldInterceptAssembler(factorySystem, assemblerId))
+        if (!benchmark.ShouldInterceptAssembler(factorySystem, assembler.id))
           continue;
 
-        ref var assembler = ref factorySystem.assemblerPool[assemblerId];
         return PlanetFactorySimulation.IsAssemblerStacking(ref assembler) ? 0 : assembler.InternalUpdate(1f, benchmark.productRegister, benchmark.consumeRegister);
       }
       
-      return factorySystem.assemblerPool[assemblerId].InternalUpdate(power, productRegister, consumeRegister);
+      return assembler.InternalUpdate(power, productRegister, consumeRegister);
     }
 
     public static uint InterceptFractionatorInternalUpdate
@@ -289,21 +288,15 @@ namespace DysonSphereProgram.Modding.Blackbox
       var matcher = new CodeMatcher(code, generator);
 
       matcher.MatchForward(false
-        , new CodeMatch(OpCodes.Ldarg_0)
-        , new CodeMatch(ci => ci.LoadsField(AccessTools.Field(typeof(FactorySystem), nameof(FactorySystem.assemblerPool))))
         , new CodeMatch(ci => ci.IsLdloc())
-        , new CodeMatch(OpCodes.Ldelema)
         , new CodeMatch(ci => ci.IsLdloc())
         , new CodeMatch(ci => ci.IsLdloc())
         , new CodeMatch(ci => ci.IsLdloc())
         , new CodeMatch(ci => ci.Calls(AccessTools.Method(typeof(AssemblerComponent), nameof(AssemblerComponent.InternalUpdate))))
       );
 
-      matcher.Advance(1);
-      matcher.RemoveInstruction();
-      matcher.Advance(1);
-      matcher.RemoveInstruction();
-      matcher.Advance(3);
+      matcher.InsertAndAdvance(new CodeInstruction(OpCodes.Ldarg_0));
+      matcher.Advance(4);
 
       matcher.SetOperandAndAdvance(AccessTools.Method(typeof(BlackboxGatewayMethods),
         nameof(BlackboxGatewayMethods.InterceptAssemblerInternalUpdate)));
