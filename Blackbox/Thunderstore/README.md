@@ -41,6 +41,9 @@ You are encouraged to contact me on the DSP Discord to provide feedback
 
 ## Changelog
 
+### [v0.2.4](https://dsp.thunderstore.io/package/Raptor/Blackbox/0.2.4/)
+* Fix compatibility with latest game version (0.9.27.15466) (for real, this time, I hope)
+
 ### [v0.2.3](https://dsp.thunderstore.io/package/Raptor/Blackbox/0.2.3/)
 * Fix compatibility with latest game version (0.9.27.15466)
 
