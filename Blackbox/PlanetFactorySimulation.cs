@@ -222,7 +222,9 @@ namespace DysonSphereProgram.Modding.Blackbox
       var factory = benchmark.simulationFactory;
       var factorySystem = factory.factorySystem;
       var cargoTraffic = factory.cargoTraffic;
-      if (factorySystem != null && cargoTraffic != null)
+      var transport = factory.transport;
+      var entitySignPool = factory.entitySignPool;
+      if (factorySystem != null && cargoTraffic != null && transport != null)
       {
         benchmark.BeginGameTick();
         
@@ -257,7 +259,7 @@ namespace DysonSphereProgram.Modding.Blackbox
           var fractionatorId = benchmark.fractionatorIds[i];
           // Do NOT use ref readonly here as it will not perform the updates
           ref var fractionator = ref factorySystem.fractionatorPool[fractionatorId];
-          fractionator.InternalUpdate(factory, 1f, factory.entitySignPool, benchmark.productRegister, benchmark.consumeRegister);
+          fractionator.InternalUpdate(factory, 1f, entitySignPool, benchmark.productRegister, benchmark.consumeRegister);
         }
 
         // TODO: Lab game tick
@@ -291,7 +293,12 @@ namespace DysonSphereProgram.Modding.Blackbox
         // TODO: Station input from belt
         // TODO: This makes use of factory.entitySignPool
         //   DONE
-        factory.transport.GameTick_InputFromBelt(0);
+        for (int i = 0; i < benchmark.stationIds.Count; i++)
+        {
+          var stationId = benchmark.stationIds[i];
+          var station = transport.stationPool[stationId];
+          station.UpdateInputSlots(cargoTraffic, entitySignPool, false);
+        }
         
         benchmark.LogStationEntryAfter();
 
@@ -341,7 +348,13 @@ namespace DysonSphereProgram.Modding.Blackbox
         benchmark.LogStationExitBefore();
         // TODO: Station output to belt
         // TODO: This makes use of factory.entitySignPool
-        factory.transport.GameTick_OutputToBelt(GameMain.history.stationPilerLevel, 0);
+        var maxPilerCount = GameMain.history.stationPilerLevel;
+        for (int i = 0; i < benchmark.stationIds.Count; i++)
+        {
+          var stationId = benchmark.stationIds[i];
+          var station = transport.stationPool[stationId];
+          station.UpdateOutputSlots(cargoTraffic, entitySignPool, maxPilerCount, false);
+        }
 
         benchmark.LogStationExitAfter();
         benchmark.DoInserterAdaptiveStacking();

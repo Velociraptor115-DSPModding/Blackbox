@@ -312,6 +312,11 @@ namespace DysonSphereProgram.Modding.Blackbox
         profilingTaskCancel = new CancellationTokenSource();
         var ct = profilingTaskCancel.Token;
         profilingTask = Task.Factory.StartNew(() => SimulateTillProfilingDone(ct), profilingTaskCancel.Token, TaskCreationOptions.PreferFairness, TaskScheduler.Default);
+        profilingTask.ContinueWith(t =>
+        {
+          var exception = t.Exception?.InnerException;
+          if (exception != null) Plugin.Log.LogError(exception);
+        }, TaskContinuationOptions.OnlyOnFaulted);
       }
     }
     
