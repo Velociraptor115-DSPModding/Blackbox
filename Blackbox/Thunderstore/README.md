@@ -41,6 +41,10 @@ You are encouraged to contact me on the DSP Discord to provide feedback
 
 ## Changelog
 
+### [v0.2.5](https://dsp.thunderstore.io/package/Raptor/Blackbox/0.2.5/)
+* Fix an infinite loop that occurred when trying to blackbox a setup containing an adv. mining machine
+* Fix stale UI issue with the Blackbox Inspect window
+
 ### [v0.2.4](https://dsp.thunderstore.io/package/Raptor/Blackbox/0.2.4/)
 * Fix compatibility with latest game version (0.9.27.15466) (for real, this time, I hope)
 
