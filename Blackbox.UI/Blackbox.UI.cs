@@ -195,7 +195,7 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
       var uiBlackboxInspectWindow = BlackboxInspectWindow?.Component;
       if (uiBlackboxInspectWindow != null)
       {
-        if (uiBlackboxInspectWindow.active && uiBlackboxInspectWindow.data != blackbox)
+        if (uiBlackboxInspectWindow.inited && uiBlackboxInspectWindow.data != blackbox)
         {
           uiBlackboxInspectWindow._Close();
           uiBlackboxInspectWindow._Free();
