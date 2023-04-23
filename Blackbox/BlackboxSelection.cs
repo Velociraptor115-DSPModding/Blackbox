@@ -81,7 +81,7 @@ namespace DysonSphereProgram.Modding.Blackbox
         if (entityId < 0)
           continue;
         ref readonly var entity = ref factory.entityPool[entityId];
-        if (entity.stationId > 0)
+        if (entity.stationId > 0 && entity.minerId == 0)
         {
           tmp_stationIds.Add(entity.stationId);
           ref readonly var station = ref factory.transport.stationPool[entity.stationId];
@@ -222,7 +222,7 @@ namespace DysonSphereProgram.Modding.Blackbox
         if (IsInvalid(entityId, factory))
           invalidEntityIds.Add(entityId);
         ref readonly var entity = ref entityPool[entityId];
-        if (entity.stationId > 0)
+        if (entity.stationId > 0 && entity.minerId == 0)
         {
           stationEntityIds.Add(entityId);
           expandedStations.Add(stationPool[entity.stationId]);

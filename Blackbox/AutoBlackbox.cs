@@ -41,6 +41,8 @@ namespace DysonSphereProgram.Modding.Blackbox
         currentFactoryIdx = currentFactoryIdx % gamedata.factoryCount;
         
         var factory = gamedata.factories[currentFactoryIdx];
+        var transport = factory.transport;
+        var stationPool = transport.stationPool;
 
         var blackboxesInFactory =
           from x in BlackboxManager.Instance.blackboxes
@@ -48,18 +50,19 @@ namespace DysonSphereProgram.Modding.Blackbox
           select x
           ;
 
-        for (int i = 1; i <= factory.transport.stationCursor; i++)
+        for (int i = 1; i <= transport.stationCursor; i++)
         {
-          var effectiveIdx = (i + currentStationIdx) % factory.transport.stationCursor;
+          var effectiveIdx = (i + currentStationIdx) % transport.stationCursor;
           if (effectiveIdx == 0)
             continue;
-          if (factory.transport.stationPool[effectiveIdx] != null && factory.transport.stationPool[effectiveIdx].id == effectiveIdx)
+          var station = stationPool[effectiveIdx];
+          if (station != null && station.id == effectiveIdx && station.minerId == 0)
           {
             if (!blackboxesInFactory.Any(b => b.Selection.stationIds.Contains(effectiveIdx)))
             {
               Plugin.Log.LogDebug("Found unblackboxed stationIdx: " + effectiveIdx);
               currentStationIdx = effectiveIdx;
-              var newBlackbox = BlackboxManager.Instance.CreateForSelection(BlackboxSelection.CreateFrom(factory, new int[] { factory.transport.stationPool[effectiveIdx].entityId }));
+              var newBlackbox = BlackboxManager.Instance.CreateForSelection(BlackboxSelection.CreateFrom(factory, new int[] { station.entityId }));
               currentBlackboxId = newBlackbox.Id;
               return;
             }
