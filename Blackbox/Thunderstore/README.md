@@ -41,6 +41,9 @@ You are encouraged to contact me on the DSP Discord to provide feedback
 
 ## Changelog
 
+### [v0.2.7](https://dsp.thunderstore.io/package/Raptor/Blackbox/0.2.7/)
+* Fix a build issue with dotnet
+
 ### [v0.2.6](https://dsp.thunderstore.io/package/Raptor/Blackbox/0.2.6/)
 * Fix compatiblity issues with combat update (game version 0.10.28.xxxxx)
 
