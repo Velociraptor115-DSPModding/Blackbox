@@ -6,6 +6,7 @@
     <LangVersion>latest</LangVersion>
     <RootNamespace>DysonSphereProgram.Modding.Blackbox</RootNamespace>
     <Version>0.2.6</Version>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
 
   <ItemGroup>
