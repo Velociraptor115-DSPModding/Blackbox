@@ -3,7 +3,7 @@ This mod allows you to "blackbox" sets of buildings together to improve your UPS
 **WARNING**: This is an alpha release of the mod. Use at your own risk or if you would like to help support development of this mod  
 
 ## What's new in this update?
-* Bugfixes
+* Fix compatiblity issues with combat update (game version 0.10.28.xxxxx)
 
 ## How to use this mod
 * First install the mod, and reboot the game.
@@ -40,6 +40,9 @@ You are encouraged to contact me on the DSP Discord to provide feedback
 * Figure out static analysis logic (if possible)
 
 ## Changelog
+
+### [v0.2.6](https://dsp.thunderstore.io/package/Raptor/Blackbox/0.2.6/)
+* Fix compatiblity issues with combat update (game version 0.10.28.xxxxx)
 
 ### [v0.2.5](https://dsp.thunderstore.io/package/Raptor/Blackbox/0.2.5/)
 * Fix an infinite loop that occurred when trying to blackbox a setup containing an adv. mining machine
