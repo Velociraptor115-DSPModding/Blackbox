@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using CommonAPI.Systems;
+using CommonAPI.Systems.ModLocalization;
 
 namespace DysonSphereProgram.Modding.Blackbox
 {
@@ -49,7 +50,7 @@ namespace DysonSphereProgram.Modding.Blackbox
             CustomKeyBindSystem.RegisterKeyBind<HoldKeyBind>(builtinKey);
           else
             CustomKeyBindSystem.RegisterKeyBind<PressKeyBind>(builtinKey);
-          ProtoRegistry.RegisterString("KEY" + keyBind.Id, keyBind.Description);
+          LocalizationModule.RegisterTranslation("KEY" + keyBind.Id, keyBind.Description);
         }
       }
     }

@@ -8,6 +8,7 @@ using UnityEngine;
 using crecheng.DSPModSave;
 using CommonAPI;
 using CommonAPI.Systems;
+using CommonAPI.Systems.ModLocalization;
 
 namespace DysonSphereProgram.Modding.Blackbox
 {
@@ -15,7 +16,7 @@ namespace DysonSphereProgram.Modding.Blackbox
   [BepInProcess("DSPGAME.exe")]
   [BepInDependency(DSPModSavePlugin.MODGUID)]
   [BepInDependency(CommonAPIPlugin.GUID)]
-  [CommonAPISubmoduleDependency(nameof(ProtoRegistry), nameof(CustomKeyBindSystem))]
+  [CommonAPISubmoduleDependency(nameof(LocalizationModule), nameof(CustomKeyBindSystem))]
   public partial class Plugin : BaseUnityPlugin, IModCanSave
   {
     private Harmony _harmony;
