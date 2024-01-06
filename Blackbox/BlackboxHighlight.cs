@@ -50,8 +50,8 @@ namespace DysonSphereProgram.Modding.Blackbox
         ref readonly var entity = ref entityPool[entityId];
         if (entity.beltId > 0 || entity.inserterId > 0)
           continue;
-        var warningId = warningSystem.NewWarningData(factory.index, entityId, blackboxSignalId);
-        warningIds.Add(warningId);
+        ref var warningId = ref warningSystem.NewWarningData(factory.index, entityId, blackboxSignalId);
+        warningIds.Add(warningId.id);
       }
     }
 

@@ -145,9 +145,7 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
           var stationId = blackbox.Selection.stationIds[stationIdx.Key];
           var station = planetFactory.transport.stationPool[stationId];
           var stationName =
-            string.IsNullOrEmpty(station.name) ?
-              station.isStellar ? "星际站点号".Translate() + station.gid : "本地站点号".Translate() + station.id
-              : station.name;
+            station.isStellar ? "星际站点号".Translate() + station.gid : "本地站点号".Translate() + station.id;
           Plugin.Log.LogDebug(stationIdx.Key);
           recipeSB.Append("- ");
           recipeSB.AppendLine(stationName);
@@ -167,10 +165,8 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
         {
           var stationId = blackbox.Selection.stationIds[stationIdx.Key];
           var station = planetFactory.transport.stationPool[stationId];
-          var stationName =
-            string.IsNullOrEmpty(station.name) ?
-              station.isStellar ? "星际站点号".Translate() + station.gid : "本地站点号".Translate() + station.id
-              : station.name;
+          var stationName = 
+            station.isStellar ? "星际站点号".Translate() + station.gid : "本地站点号".Translate() + station.id;
           recipeSB.Append("- ");
           recipeSB.AppendLine(stationName);
           foreach (var itemId in stationIdx.Value)

@@ -56,7 +56,7 @@ namespace DysonSphereProgram.Modding.Blackbox.UI
     }
 
     [HarmonyPrefix]
-    [HarmonyPatch(typeof(PlayerControlGizmo), nameof(PlayerControlGizmo.SetMouseOverTarget))]
+    [HarmonyPatch(typeof(PlayerControlGizmo), nameof(PlayerControlGizmo.SetMouseOverTarget), typeof(EObjectType), typeof(int), typeof(int), typeof(int))]
     static void PlayerControlGizmo__SetMouseOverTarget(PlayerControlGizmo __instance, EObjectType tarType, ref int tarId, ref bool __runOriginal)
     {
       var highlight = BlackboxManager.Instance.highlight;
